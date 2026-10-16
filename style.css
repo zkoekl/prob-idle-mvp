@@ -214,3 +214,5 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;font-size:.7rem;font-family:sans-serif;opacity:.8;cursor:help;vertical-align:middle}
 .theme-combats .item{background:linear-gradient(#e2d2ae,#cbb68a)!important;color:#2a1c10}
 .theme-combats .item .r-common{color:#3a3a3a}.theme-combats .item .r-uncommon{color:#1f6b2a}.theme-combats .item .r-rare{color:#1d4f9a}.theme-combats .item .r-epic{color:#6a2a9a}.theme-combats .item .r-legendary{color:#a04a00}.theme-combats .item .r-set{color:#0f7a3a}
+.theme-combats details.fold,.theme-combats .lootmini,.theme-combats .qbar,.theme-combats .gset,.theme-combats .evbox,.theme-combats .tutbox{background:linear-gradient(#2a2017,#1d1610)!important;border-color:#4a3a28!important}
+.theme-combats .tutbox{border-color:var(--gold)!important}
