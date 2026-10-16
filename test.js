@@ -110,3 +110,12 @@ console.log('TESTS OK');
  assert(G.attrFree(n)===6,'attr points from level');G.heroPower(n);G.deathChance(n,1,[0,0,0],1);G.startRun(n);
  const fut=G.load(JSON.stringify(Object.assign(G.newState(),{ver:999,gold:5})));assert(fut&&fut.gold===5,'future ver keeps progress');
  console.log('SAVE MIGRATION OK');}
+// endless + no-energy sanity
+{const s=G.newState();s.noDaily=1;G.UNLOCKS.forEach(u=>s.unl[u.k]=1);s.won=true;s.cleared=[0,1,2,3,4,5];s.lvl=30;
+ for(const sl of G.slotsOpen(s)){s.inv.push(G.makeItem(s,G.BASE_N+2,4,Math.random,0,sl));}G.equipBest(s);
+ const dc=d=>G.deathChance(s,G.BASE_N-1+d,[0,0,0],4);console.log('abyss dc d1/4/8',dc(1).toFixed(3),dc(4).toFixed(3),dc(8).toFixed(3));assert(dc(8)>=dc(4)&&dc(4)>dc(1),'abyss risk grows');
+ const v=d=>{let x=0;for(let st=0;st<5;st++)x+=G.stageEV(s,G.BASE_N-1+d,[0,0,0],st);return x;};assert(v(8)>v(4)*2,'abyss reward grows');
+ const L=G.LX(5);const practicePerMin=3*L.lvl*0.6*4;// ~4 practice wins/min at best
+ let run=0;for(let st=0;st<L.stages;st++)run+=G.stageEV(s,5,[0,0,0],st);const runPerMin=run/G.runCost(s,5)*(60/9);
+ console.log('no-energy practice/min',practicePerMin.toFixed(0),'vs runs/min',runPerMin.toFixed(0));assert(practicePerMin<runPerMin*0.1,'practice << runs');
+ let mq=0;for(let i=0;i<1e5;i++)mq=Math.max(mq,G.rollQ(Math.random));assert(mq>=4&&mq<15,'quality tail sane '+mq);console.log('ENDLESS OK');}
