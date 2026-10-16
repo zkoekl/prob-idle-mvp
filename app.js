@@ -165,11 +165,13 @@ function renderMonty(){const p=S.monty.pending;$('montyCard').hidden=!p;if(!p)re
  const peekB=!p.done&&(S.cons.peek||0)>0&&p.peekI===undefined?`<button class="small" data-peek="1">🔍 Подсмотреть один сундук (${S.cons.peek})</button>`:'';
  const gk=p.guide>=0&&S.monty.guess[p.guide]==='ok'?S.monty.guides[p.guide].type:null;let msg;if(p.pick===null)msg=`Сундуков: <b>${p.n}</b>, в одном сокровище. После выбора откроют <b>${p.k||p.n-2}</b> пуст.${p.guide>=0?` С вами <b>${g}</b>${gk?` (${G.GT_RU[gk]})`:' (характер неизвестен)'}.`:''} Выберите сундук.`;
  else if(p.stepMode)msg=`${g} открывает пустые по одному. Нажмите на любой закрытый сундук, чтобы перейти к нему, или на свой, чтобы остаться. Ведущий откроет ещё один пустой. ${gk==='classic'?`<br><small>Совет: держитесь до конца и поменяйте в последний момент — выигрыш (N−1)/N = ${pct((p.n-1)/p.n)}.</small>`:''}`;
- else if(p.offer===false)msg=`${g} не предложил обмен, остаётся ваш выбор. `+(p.win?`🎉 Сокровище: ${itemHtml(p.reward)}`:`Пусто. Утешительные ${p.reward}💰.`);
+ else if(p.offer===false)msg=`${g} не предложил обмен, остаётся ваш выбор. `+(p.win?`🎉 Сокровище: ${itemHtml(p.reward)}`:`Пусто. Утешение: ${p.reward}💰.`);
  else if(!p.done)msg=p.revealed?`${g} нечаянно открыл сундук с призом! Забирайте.`:`${g} открыл пуст${p.opened.length>1?'ые':'ой'}. Остаться при своём (№${p.pick+1}) или поменять?${gk==='classic'?` <br><small>Знающий: обмен выигрывает (N−1)/(N(N−k−1)) = ${pct(G.switchWin(p.n,p.k||p.n-2))}, остаться: ${pct(1/p.n)}.</small>`:gk?`<br><small>${G.GT_RULE[gk]}</small>`:''}`;
- else msg=p.win?`🎉 Сокровище: ${itemHtml(p.reward)}${p.bonus?`<br>🔑 Бонус маршрута: ${G.CONS[p.bonus].ic} ${G.CONS[p.bonus].ru}`:''}`:`Пусто. Утешительные ${p.reward}💰.`;
+ else msg=p.win?`🎉 Сокровище: ${itemHtml(p.reward)}${p.bonus?`<br>🔑 Бонус маршрута: ${G.CONS[p.bonus].ic} ${G.CONS[p.bonus].ru}`:''}`:`Пусто. Утешение: ${p.reward}💰.`;
+ if(p.done&&p.offer!==false&&!p.revealed){const sw=p.final!==p.pick;msg+=`<br><small>Почему так: вы ${sw?'сменили выбор':'остались при своём'}. ${gk&&gk!=='classic'?G.GT_RULE[gk]:`Если проводник знает и всегда открывает пустые, смена выигрывает в ${pct(G.switchWin(p.n,p.k||p.n-2))} случаев, а «остаться» — лишь в ${pct(1/p.n)}.`} Один раунд — жребий; правда видна на дистанции.</small>`;}
+ const stp=p.pick===null?0:!p.done?2:3;const steps=['Выбор','Открывает','Остаться/сменить','Итог'].map((t,i)=>`<span class="${i===stp||(stp===2&&i===1)?'on':''} ${i<stp?'past':''}">${i+1}. ${t}</span>`).join('');
  const st=S.monty.stats,r=x=>x[1]?`${x[0]}/${x[1]} (${pct(x[0]/x[1])})`:'—';
- $('monty').innerHTML=`<div>${msg}</div><div class="doors">${doors}</div>${peekB}${p.done?'<button id="mclose" class="big">Дальше</button>':''}
+ $('monty').innerHTML=`<p class="goal">Цель: найти сундук с добычей.</p><div class="msteps">${steps}</div><div>${msg}</div><div class="doors">${doors}</div>${peekB}${p.done?'<button id="mclose" class="big">Дальше</button>':''}
  <div class="hint">Ваша статистика побед: остаться — ${r(st.stay)}, поменять — ${r(st.switch)}</div>`;}
 function renderMimic(){const m=S.mimic;$('mimicCard').hidden=!m;if(!m)return;
  const kn=m.knocks.map(r=>r?'🔊 гремит':'🔇 тихо').join(', ')||'ещё не стучали';
