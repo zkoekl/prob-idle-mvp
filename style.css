@@ -168,3 +168,9 @@ table{border-collapse:collapse}td,th{border-color:var(--line)!important}tr.you{b
 .nodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}.nodebtn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}.nodebtn small{color:#3b2f14;font-weight:400}
 html{background:#16191f}.stance button small{display:block}.stance button{font-size:.8rem}
 .door span{color:#3a2f1b;font-weight:600}
+.locgrid{display:block}.wmap{position:relative;height:170px;border-radius:12px;background:radial-gradient(circle at 20% 70%,#2f4a35,transparent 40%),radial-gradient(circle at 60% 30%,#3a3446,transparent 40%),radial-gradient(circle at 90% 20%,#4a2f2f,transparent 35%),#1f242d;border:1px solid var(--line);overflow:hidden}
+.wmap svg{position:absolute;inset:0;width:100%;height:100%}
+.pin{position:absolute;transform:translate(-50%,-50%);background:transparent;border:0;padding:0;min-height:0;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink)}
+.pin i{font-style:normal;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card2);border:2px solid var(--line);font-size:.8rem;font-weight:700}
+.pin span{font-size:.62rem;white-space:nowrap;text-shadow:0 1px 2px #000}.pin.done i{border-color:#3c7d4a;color:#8fd19c}.pin.sel i{border-color:var(--gold);box-shadow:0 0 10px #d8b25a88;color:var(--gold)}.pin.lock{opacity:.55}
+.pin:disabled{opacity:.5}.pin.sel:disabled{opacity:1}
