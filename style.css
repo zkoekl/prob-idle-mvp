@@ -217,3 +217,4 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .theme-combats details.fold,.theme-combats .lootmini,.theme-combats .qbar,.theme-combats .gset,.theme-combats .evbox,.theme-combats .tutbox{background:linear-gradient(#2a2017,#1d1610)!important;border-color:#4a3a28!important}
 .theme-combats .tutbox{border-color:var(--gold)!important}
 .msteps{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 8px;font-size:.75rem}.msteps span{padding:2px 6px;border:1px solid #4a3a28;border-radius:10px;opacity:.55}.msteps span.on{opacity:1;border-color:var(--gold,#c9a24a);color:var(--gold,#c9a24a)}.msteps span.past{opacity:.8}
+.duelhp>div{display:flex;flex-direction:column;gap:3px}.duelhp .bar{width:100%}

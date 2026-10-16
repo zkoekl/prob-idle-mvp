@@ -85,7 +85,7 @@ function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])cont
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
 // hero attributes: 1 point per level; modest sidegrades
-const ATTR={str:{ru:'Сила',ic:'💪',d:'+3% урона в походах и с боссами; +3% удара в поединке'},agi:{ru:'Ловкость',ic:'🤸',d:'−1% риска гибели в походе; чуть надёжнее шаги в погружении (до +1%); +1.6% уворота в поединке'},int:{ru:'Интуиция',ic:'👁',d:'+1.5% удачи на добычу; с 5 — подсказки в поединке, с 8 — догадка о характере проводника; +3.5% крита в поединке'},end:{ru:'Выносливость',ic:'❤️',d:'+3% здоровья; +1 к запасу энергии за 2 очка; больше здоровья в поединке'}};
+const ATTR={str:{ru:'Сила',ic:'💪',d:'+3% урона в походах и с боссами; +3% удара в поединке'},agi:{ru:'Ловкость',ic:'🤸',d:'−1% риска гибели в походе; чуть надёжнее шаги в погружении (до +1%); +1.6% уворота в поединке'},int:{ru:'Интуиция',ic:'👁',d:'+1.5% удачи на добычу; с 5 — подсказки в поединке, с 8 — догадка о характере проводника; +4% крита в поединке'},end:{ru:'Выносливость',ic:'❤️',d:'+3% здоровья; +1 к запасу энергии за 2 очка; больше здоровья в поединке'}};
 function aSum(s){return Object.values(s.attr||{}).reduce((a,b)=>a+b,0);}
 function A(s,k){return (s.attr&&s.attr[k])||0;}
 function attrFree(s){return Math.max(0,(s.lvl-1)-Object.values(s.attr||{}).reduce((a,b)=>a+b,0));}
