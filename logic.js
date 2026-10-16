@@ -31,7 +31,7 @@ const AFFIXES=[
  {k:'goldPct',ru:'золото',min:3,max:10,unit:'%'},{k:'riskRed',ru:'снижение риска',min:2,max:7,unit:'%'},
  {k:'luck',ru:'удача',min:2,max:8,unit:'%'},{k:'speed',ru:'скорость похода',min:3,max:8,unit:'%'}];
 // --- synergy tags: 2/3 equipped items with the same tag give strong bonuses
-const TAGS={fire:{ru:'Огонь',ic:'🔥',b2:'урон ×1.15',b3:'урон ×1.4',kind:'сила'},ice:{ru:'Лёд',ic:'❄️',b2:'HP ×1.15',b3:'HP ×1.4',kind:'сила'},
+const TAGS={fire:{ru:'Огонь',ic:'🔥',b2:'урон ×1.15',b3:'урон ×1.4',kind:'сила'},ice:{ru:'Лёд',ic:'❄️',b2:'здоровье ×1.15',b3:'здоровье ×1.4',kind:'сила'},
  luck:{ru:'Удача',ic:'🍀',b2:'шанс редких +15%',b3:'шанс редких +40%',kind:'польза'},shadow:{ru:'Тень',ic:'🌑',b2:'риск −15%',b3:'риск −30%, при гибели 25% добычи спасается',kind:'польза'},
  crit:{ru:'Крит',ic:'🎯',b2:'+1 осколок за этап',b3:'шанс фишек +30%',kind:'польза'}};
 const TAG_K=Object.keys(TAGS);
