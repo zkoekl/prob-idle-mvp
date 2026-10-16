@@ -191,3 +191,4 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .ico.t4,.ico.t5,.ico.t6,.ico.t7{filter:drop-shadow(0 0 4px rgba(255,180,60,.5))}
 #hav{display:inline-flex;vertical-align:middle;margin-right:6px}#hav svg{width:34px;height:34px}
 .avwrap{width:120px;height:120px}
+.skic{font-size:30px;line-height:1}
