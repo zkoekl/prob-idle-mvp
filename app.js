@@ -115,6 +115,7 @@ function renderMonty(){const p=S.monty.pending;$('montyCard').hidden=!p;if(!p)re
   return `<button class="${cls}" data-door="${i}" ${p.done?'disabled':''}>${ART.chest()}<span>${i+1}: ${lab}</span></button>`}).join('');
  const peekB=!p.done&&(S.cons.peek||0)>0&&p.peekI===undefined?`<button class="small" data-peek="1">🔍 Подсмотреть один сундук (${S.cons.peek})</button>`:'';
  const gk=p.guide>=0&&S.monty.guess[p.guide]==='ok'?S.monty.guides[p.guide].type:null;let msg;if(p.pick===null)msg=`Сундуков: <b>${p.n}</b>, в одном сокровище. После выбора откроют <b>${p.k||p.n-2}</b> пуст.${p.guide>=0?` С вами <b>${g}</b>${gk?` (${G.GT_RU[gk]})`:' (характер неизвестен)'}.`:''} Выберите сундук.`;
+ else if(p.stepMode)msg=`${g} открывает пустые по одному. Нажмите на любой закрытый сундук, чтобы перейти к нему, или на свой, чтобы остаться. Ведущий откроет ещё один пустой. ${gk==='classic'?`<br><small>Совет: держитесь до конца и поменяйте в последний момент — выигрыш (N−1)/N = ${pct((p.n-1)/p.n)}.</small>`:''}`;
  else if(p.offer===false)msg=`${g} не предложил обмен, остаётся ваш выбор. `+(p.win?`🎉 Сокровище: ${itemHtml(p.reward)}`:`Пусто. Утешительные ${p.reward}💰.`);
  else if(!p.done)msg=p.revealed?`${g} нечаянно открыл сундук с призом! Забирайте.`:`${g} открыл пуст${p.opened.length>1?'ые':'ой'}. Остаться при своём (№${p.pick+1}) или поменять?${gk==='classic'?` <br><small>Знающий: обмен выигрывает (N−1)/(N(N−k−1)) = ${pct(G.switchWin(p.n,p.k||p.n-2))}, остаться: ${pct(1/p.n)}.</small>`:gk?`<br><small>${G.GT_RULE[gk]}</small>`:''}`;
  else msg=p.win?`🎉 Сокровище: ${itemHtml(p.reward)}${p.bonus?`<br>🔑 Бонус маршрута: ${G.CONS[p.bonus].ic} ${G.CONS[p.bonus].ru}`:''}`:`Пусто. Утешительные ${p.reward}💰.`;
@@ -245,7 +246,7 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  if(d.loc!==undefined){S.loc=+d.loc;$('eval').innerHTML='';}
  else if(d.p!==undefined){if(usedChips()<G.chipTotal(S))S.alloc[+d.p]++;$('eval').innerHTML='';}
  else if(d.m!==undefined){if(S.alloc[+d.m]>0)S.alloc[+d.m]--;$('eval').innerHTML='';}
- else if(d.door!==undefined){const p=S.monty.pending;const i=+d.door;if(p.pick===null)G.montyPick(S,i);else if(!p.done&&(i===p.pick||G.montyClosed(p).includes(i)||(p.revealed&&i===p.prize)))G.montyFinal(S,i);}
+ else if(d.door!==undefined){const p=S.monty.pending;const i=+d.door;if(p.pick===null)G.montyPick(S,i);else if(p.stepMode)G.montyStep(S,i);else if(!p.done&&(i===p.pick||G.montyClosed(p).includes(i)||(p.revealed&&i===p.prize)))G.montyFinal(S,i);}
  else if(b.id==='winx')S.winHidden=1;
  else if(b.id==='mclose')G.montyClear(S);
  else if(b.id==='dstart')G.diveStart(S);

@@ -351,13 +351,14 @@ function switchWin(n,k){return (n-1)/(n*(n-k-1));}
 function maybeMonty(s,rng=Math.random,force=false,extra=0){if(!s.unl.monty||s.monty.pending)return false;s.monty.since++;
  if(!force){if(s.monty.since<2&&s.monty.plays>0)return false;if(rng()>0.5&&s.monty.plays>0)return false;}s.monty.since=0;
  const n=Math.min(7,doors(s)+extra);const g=s.monty.guides?Math.floor(rng()*s.monty.guides.length):-1;const k=n<=3?1:1+Math.floor(rng()*(n-2));
- s.monty.pending={route:extra>0,n,k,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
+ s.monty.pending={steps:n>=4&&rng()<0.5,route:extra>0,n,k,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
 function guideType(s,p){return p.guide<0||rule(s,'honest')?'classic':s.monty.guides[p.guide].type;}
 function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==null)return;p.pick=i;const n=p.n,k=p.k||n-2;
  const others=[...Array(n).keys()].filter(x=>x!==i);const type=guideType(s,p);const empt=others.filter(x=>x!==p.prize);
  const shuffle=a=>{for(let q=a.length-1;q>0;q--){const j=Math.floor(rng()*(q+1));[a[q],a[j]]=[a[j],a[q]];}return a;};
  let open=[],offer=true;
- if(type==='classic')open=shuffle(empt).slice(0,k);
+ if(type==='classic'&&p.steps){open=shuffle(empt).slice(0,1);p.stepMode=n-2>1;}
+ else if(type==='classic')open=shuffle(empt).slice(0,k);
  else if(type==='random')open=shuffle(others.slice()).slice(0,k);
  else if(type==='hell'){offer=i===p.prize;if(offer)open=shuffle(empt).slice(0,k);}
  else if(type==='angel'){offer=i!==p.prize;if(offer)open=shuffle(empt).slice(0,k);}
@@ -366,6 +367,9 @@ function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==
  if(p.guide>=0){const st=s.monty.guides[p.guide].stats;st.offer=st.offer||[0,0];st.offer[1]++;if(offer)st.offer[0]++;}
  if(!offer){montyFinal(s,i,rng);return;}
  if(s.perks.seer&&type!=='classic'&&!p.revealed&&rng()<0.5){const e=montyClosed(p).filter(x=>x!==p.prize);if(e.length)p.hint=e[0];}}
+// step-by-step: host opens one empty chest at a time; you may move your pick before each opening
+function montyStep(s,newPick,rng=Math.random){const p=s.monty.pending;if(!p||!p.stepMode||p.done)return false;if(newPick!==p.pick&&!montyClosed(p).includes(newPick))return false;if(newPick!==p.pick)p.moves=(p.moves||0)+1;p.pick=newPick;
+ const c=montyClosed(p).filter(x=>x!==p.prize);if(c.length){p.opened.push(c[Math.floor(rng()*c.length)]);}if(montyClosed(p).length<=1)p.stepMode=false;return true;}
 function montyClosed(p){return[...Array(p.n).keys()].filter(x=>x!==p.pick&&!p.opened.includes(x));}
 function montyFinal(s,choice,rng=Math.random){const p=s.monty.pending;if(!p||p.pick===null||p.done)return null;
  const sw=choice!==p.pick;const win=choice===p.prize;p.done=true;p.final=choice;p.win=win;
@@ -402,7 +406,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
