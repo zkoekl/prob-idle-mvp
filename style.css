@@ -113,3 +113,6 @@ section.collapsed>:not(h2){display:none!important}section.collapsed h2.coll::aft
 .pc.bag{background:#cfe9d6;color:#1d5c2e}.pc.on{opacity:1;background:#2fa84f;color:#fff}
 .eqchoice{border:1px solid #3fdc6a;border-radius:8px;padding:8px;margin:6px 0;background:rgba(40,90,55,.18)}
 [hidden]{display:none!important}
+.stance{display:flex;gap:4px;margin:8px 0 2px}.stance button{flex:1;line-height:1.25;padding:5px 3px;font-size:.78rem}.stance button.sel{outline:2px solid #2e7bd6;background:#e3eefb}
+.lootmini{margin-top:10px;border-top:1px dashed #ccc;padding-top:6px}
+#reportCard.compact #report > .item,#reportCard.compact #report .row:has(#autoeq2){display:none}
