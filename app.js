@@ -1,8 +1,9 @@
 const KEY='probIdleSave';const $=id=>document.getElementById(id);
 let S=G.load(localStorage.getItem(KEY));let migrated=false;
-if(!S){migrated=!!(localStorage.getItem(KEY)||localStorage.getItem('probIdleMvp1'));localStorage.removeItem('probIdleMvp1');S=G.newState();}
+if(!S){const raw0=localStorage.getItem(KEY);if(raw0){try{localStorage.setItem(KEY+'_bak_'+Date.now(),raw0);}catch(e){}}migrated=!!(raw0||localStorage.getItem('probIdleMvp1'));localStorage.removeItem('probIdleMvp1');S=G.newState();}
 G.tickEnergy(S);
-const save=()=>{S.lastSeen=Date.now();localStorage.setItem(KEY,JSON.stringify(S));};
+const save=()=>{try{S.lastSeen=Date.now();localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});window.addEventListener('pagehide',save);window.addEventListener('beforeunload',save);
 const pct=x=>(x*100).toFixed(x<0.01&&x>0?2:1)+'%';
 const fmt=n=>n>=1e12?(n/1e12).toFixed(1)+'T':n>=1e9?(n/1e9).toFixed(1)+'B':n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?(n/1e3).toFixed(1)+'k':Math.round(n)+'';
 const AFRU=Object.fromEntries(G.AFFIXES.map(a=>[a.k,a]));
@@ -48,7 +49,18 @@ function routeHtml(r){const L=G.LX(r.loc);const route=r.route||[];const opts=rou
  const nodes=route.map((o,i)=>{const done=i<r.stage;const t=done?(r.path||[])[i]||'fight':null;return `<div class="node ${done?'done':i===r.stage?'next':''}">${done?G.NODES[t].ic:i===r.stage?o.map(k=>G.NODES[k].ic).join('/'):'?'}</div>`;}).join('<i class="link"></i>');
  return `<div class="route"><div class="routeline">🏠<i class="link"></i>${nodes}<i class="link"></i>🏁</div><small>Дальше по маршруту «?»: ${pr}</small></div>
  <div class="row nodes">${opts.map((k,i)=>`<button class="big nodebtn" data-node="${i}" ${k==='boss'?'data-boss="1"':''}><b>${G.NODES[k].ic} ${G.NODES[k].ru}</b><small>${G.NODES[k].d}${k==='boss'?` · <b class="bad">гибель ${pct(Math.min(.9,G.deathChance(S,r.loc,r.alloc,r.stage)*3))}</b>`:''}</small></button>`).join('')}</div>`;}
-function nodeEvent(t){if(t==='chest'){G.maybeMonty(S,Math.random,true,S.run?S.run.stage:0);}else if(t==='mimic'){G.maybeMimic(S,Math.random,true);}else if(t==='merchant'){G.maybeSecretary(S,Math.random,true);}else if(t==='shrine'){S.shrineOpen=1;}else if(t==='shaft'){}}
+const ZI=['🗣 Голова','🫁 Корпус','🦵 Ноги'],ZA=['голову','корпус','ноги'];
+function renderDuel(){const d=S.duel;$('duelCard').hidden=!d;if($('arena')&&S.tab==='games'){const pr=S.energy<G.DUEL_COST;$('arena').innerHTML=`<p class="goal">Цель: победить бойца, угадывая его привычки.</p><small class="hint">Каждый раунд вы выбираете, <b>куда бить</b> и <b>что закрыть блоком</b>. У врага есть любимые зоны — следите за его статистикой и бейте туда, где он редко ставит блок.</small><div class="row"><button class="big" id="duelGo" ${d?'disabled':''}>${pr?'🎯 Тренировочный бой (бесплатно, награда крошечная)':`🤺 Вызвать на бой (⚡${G.DUEL_COST})`}</button></div><small>Побед: ${S.duelStats.w}/${S.duelStats.n}. Награда: редкая или эпическая вещь.</small>`;}
+ if(!d)return;const O=G.duelOdds(S),h=G.duelHint(S),n=d.round;const bar=(v,m,c)=>`<div class="bar"><i style="width:${Math.max(0,v/m*100)}%;background:${c}"></i></div>`;
+ const fr=(arr)=>arr.map((x,i)=>`<td>${n?Math.round(x/n*100)+'%':'—'}</td>`).join('');
+ const last=d.log.slice(-3).reverse().map(r=>`<div class="dl">Вы: удар в ${ZA[r.a]}${r.hit?` — <b class="good">−${r.hit}${r.crit?' крит!':''}</b>`:` — ${r.a===r.eb?'блок':'уворот'}`}; враг: в ${ZA[r.ea]}${r.ehit?` — <b class="bad">−${r.ehit}${r.ecrit?' крит!':''}</b>`:` — ${r.ea===r.b?'ваш блок':'уворот'}`}</div>`).join('');
+ let h_=`<p class="goal">${d.boss?'💀 ':''}${d.name}: выбейте его HP до нуля раньше, чем он ваше.</p><div class="duelhp"><div>Вы ${Math.max(0,d.hp)}/${d.max}${bar(d.hp,d.max,'#4caf50')}</div><div>${d.name} ${Math.max(0,d.ehp)}/${d.emax}${bar(d.ehp,d.emax,'#d9534f')}</div></div>`;
+ if(!d.done){const a=S.dA??null,b=S.dB??null;h_+=`<div class="dz"><div><b>Удар</b>${ZI.map((z,i)=>`<button class="${a===i?'sel':''}" data-da="${i}">${z}</button>`).join('')}</div><div><b>Блок</b>${ZI.map((z,i)=>`<button class="${b===i?'sel':''}" data-db="${i}">${z}</button>`).join('')}</div></div><div class="row"><button class="big" id="duelHit" ${a===null||b===null?'disabled':''}>⚔️ Раунд ${n+1}</button></div>`;}
+ else h_+=`<div class="${d.win?'good':'bad'}"><b>${d.win?'Победа!':'Поражение.'}</b> ${d.win?(d.reward&&d.reward.name?`Награда: ${d.reward.name} (${d.reward.rarity})${d.route?' — в мешок похода':''}`:`+${d.reward}💰`):'Награды нет.'}</div><div class="row"><button class="big" id="duelEnd">Дальше</button></div>`;
+ h_+=`<details class="fold" open><summary>👁 Привычки врага <small>за ${n} раундов</small></summary><table><tr><th></th><th>гол.</th><th>корп.</th><th>ноги</th></tr><tr><td>бьёт</td>${fr(d.seen.atk)}</tr><tr><td>блок</td>${fr(d.seen.blk)}</tr></table>${G.A(S,'int')>=5&&n>=3?`<small>Интуиция подсказывает: бить в <b>${ZA[h.atk]}</b>, закрывать <b>${ZA[h.blk]}</b>.</small>`:'<small>Чем больше раундов, тем точнее частоты. (Интуиция 5+ даёт подсказку.)</small>'}<br><small>Ваш крит ${Math.round(O.crit*100)}%, уворот ${Math.round(O.dodge*100)}%, удар ${O.dmg}; враг бьёт на ${O.edmg}.</small></details>${last}`;
+ $('duel').innerHTML=h_;}
+function attrHtml(){const f=G.attrFree(S);return `<details class="fold" data-fold="openAttr" ${S.openAttr||f?'open':''}><summary>📊 Характеристики <small>${f?`<b class="good">свободно очков: ${f}</b>`:Object.keys(G.ATTR).map(k=>G.ATTR[k].ic+G.A(S,k)).join(' ')}</small></summary>${Object.keys(G.ATTR).map(k=>`<div class="attr"><span>${G.ATTR[k].ic} <b>${G.ATTR[k].ru}</b> ${G.A(S,k)}<br><small>${G.ATTR[k].d}</small></span><button class="small" data-attr="${k}" ${f?'':'disabled'}>+</button></div>`).join('')}<small class="hint">1 очко за уровень. Сбросить можно за золото.</small> <button class="small" id="attrReset">Сбросить</button></details>`;}
+function nodeEvent(t){if(t==='chest'){G.maybeMonty(S,Math.random,true,S.run?S.run.stage:0);}else if(t==='mimic'){G.maybeMimic(S,Math.random,true);}else if(t==='merchant'){G.maybeSecretary(S,Math.random,true);}else if(t==='shrine'){S.shrineOpen=1;}else if(t==='duel'){G.duelStart(S,Math.random,{free:1,route:1,loc:S.run?S.run.loc:undefined});}else if(t==='shaft'){}}
 function avEq(){const e=G.eqOf(S);const o={};G.SLOTS.forEach((k,i)=>o[k]=e[i]);return o;}
 const BN={hpPct:'здоровье',luck:'удача',riskRed:'риск',goldPct:'золото'};
 const SKN={wander:['🧭','Странник'],knight:['🛡️','Рыцарь'],witch:['🔮','Ведьма'],shade:['🗡️','Тень'],lich:['💀','Лич']};
@@ -88,14 +100,14 @@ function runEval(){const rows=[{name:'Ваш расклад',a:S.alloc.slice(),y
   h+=`<tr class="${r.you?'you':''}"><td>${r.name}</td><td>${sn}</td><td>${fmt(m.mean)}</td><td>${fmt(m.p10)}</td><td>${fmt(m.p50)}</td><td>${fmt(m.p90)}</td><td>${pct(m.death)}</td></tr>`;}
  const mx=Math.max(...y.bins);
  $('eval').innerHTML=`<div class="hint">Ваш расклад: распределение золота за поход (0…${fmt(y.max)}), красный — ноль</div><div class="hist">${y.bins.map((b,i)=>`<i class="${i?'':'z'}" style="height:${b/mx*100}%"></i>`).join('')}</div>${h}</table>`;}
-function render(){if(window.HeroArt){const e=G.eqOf(S),key=(S.skin||'')+G.heroPower(S)+e.map(x=>x?x.id:0).join();if(key!==window._havK){window._havK=key;const h=document.getElementById('hav');if(h)h.innerHTML=HeroArt.renderAvatar(avEq(),{skin:S.skin,power:G.heroPower(S),size:34});}}RC=null;renderShrine();header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
+function render(){if(window.HeroArt){const e=G.eqOf(S),key=(S.skin||'')+G.heroPower(S)+e.map(x=>x?x.id:0).join();if(key!==window._havK){window._havK=key;const h=document.getElementById('hav');if(h)h.innerHTML=HeroArt.renderAvatar(avEq(),{skin:S.skin,power:G.heroPower(S),size:34});}}RC=null;renderShrine();renderDuel();header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
  const slot=(k)=>{const it=S[k];if(!it)return G.slotsOpen(S).includes(k)?`<div class="item empty"><div class="txt"><small>${G.SLOT_RU[k]}: пусто — найдите в походе</small></div></div>`:'';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
   const can=U.shop&&it.slot!=='charm'&&it.lvl<10;
   const info=p<1?`<br><small>шанс ${pct(p)}${G.enhDown(it.lvl)?' · провал: −1 ур.':''} · ≈${G.expTries(it.lvl,S.useScroll&&S.scrolls>0).toFixed(1)} попыт.</small>`:'';
   return itemHtml(it,can?`<button class="small" data-up="${k}" ${S.gold>=c.gold&&S.mats>=c.mats?'':'disabled'} title="Улучшить снаряжение">⬆ +${it.lvl+1}: ${fmt(c.gold)}💰 ${fmt(c.mats)}🔩${info}</button>`:'');};
  if(act('hero'))$('hero').innerHTML=`<div class="herobox ${S.run&&!S.run.waiting?'walking':''}"><div class="avwrap">${window.HeroArt?HeroArt.renderAvatar(avEq(),{skin:S.skin,power:G.heroPower(S),size:120}):ART.hero()}</div><div><b>Герой, ур. ${S.lvl}</b><br>⚔️ ${G.heroDmg(S)} · ❤️ ${G.heroHp(S)}<br><span title="Сила = урон + HP/4; открывает локации">💪 Сила ${G.heroPower(S)}</span><br><small>Походов ${S.runs}${S.deaths?`, гибелей ${S.deaths}`:''}</small></div>
  ${G.eqOf(S).some(Boolean)?`<div class="slots">${G.SLOTS.map(slot).join('')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
- synHtml()+gsetHtml()+skinsHtml()+(U.pity&&S.shards>=G.pityCost(S)?`<div class="lootmini row"><span>💎 Осколков хватает на гарантированную легендарку</span><button id="pity" class="big">Создать</button></div>`:'');
+ attrHtml()+synHtml()+gsetHtml()+skinsHtml()+(U.pity&&S.shards>=G.pityCost(S)?`<div class="lootmini row"><span>💎 Осколков хватает на гарантированную легендарку</span><button id="pity" class="big">Создать</button></div>`:'');
  renderTabs();if(act('games')){renderKelly();renderDeck();renderDive();renderGuides();}else if((S.dive&&S.dive.route)||S.pendingNode!==undefined)renderDive();if(act('stats')){renderRebirth();renderStats();renderSets();renderHowto();}$('snd').textContent=S.sound?'🔊':'🔇';
  renderRun();renderChips();renderMonty();renderSec();applyColl();renderMimic();
  $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];
@@ -152,7 +164,7 @@ function renderGuides(){const gs=S.monty.guides;$('guidesCard').hidden=!gs;if(!g
  ${ok?'':n<5?`<small>Угадать характер можно после 5 раундов (сыграно ${n})</small>`:`<div class="btns">${G.GTYPES.map(t=>`<button class="small" data-guess="${i}" data-gt="${t}">${G.GT_RU[t]}</button>`).join('')}</div>`}</div></div>`;}).join('')+
  `<details><summary class="hint">Характеры проводников</summary>${G.GTYPES.map(t=>`<p class="hint"><b>${G.GT_RU[t]}:</b> ${G.GT_RULE[t]}</p>`).join('')}<p class="hint">Подсказка: Коварный предлагает обмен редко (≈1/N раундов), Добрый — почти всегда. Ошибка в догадке сбрасывает статистику.</p></details>`+
  `<div class="row"><button id="montyGo" class="big" ${S.monty.pending?'disabled':''}>${S.energy<3?'🎯 Тренировка (бесплатно, награда крошечная)':'🎁 Сыграть раунд (⚡3)'}</button></div><div class="hint">Ещё чаще комнаты сундуков встречаются на маршруте похода (🎁): чем глубже этап, тем больше сундуков.</div>`;}
-function renderHowto(){$('howto').innerHTML=['start',...G.UNLOCKS.map(u=>u.k).filter(k=>S.unl[k])].map(k=>`<p><b>${HELP[k][0]}.</b> ${HELP[k][1]}</p>`).join('')+'<p class="hint">Остальное откроется по мере игры.</p>';}
+function renderHowto(){$('howto').innerHTML=['start',...G.UNLOCKS.map(u=>u.k).filter(k=>S.unl[k]&&HELP[k])].map(k=>`<p><b>${HELP[k][0]}.</b> ${HELP[k][1]}</p>`).join('')+'<p class="hint">Остальное откроется по мере игры.</p>';}
 function guessMsg(h){const t=document.createElement('div');t.innerHTML=h;toast(t.textContent);}
 let lastCard=null;function afterRun(){const c=G.drawCard(S,S.loc);lastCard=c;if(!G.maybeMonty(S)&&!G.maybeMimic(S))G.maybeSecretary(S);return c;}
 function cardHtml(c){if(!c)return'';return `<p>🃏 Карта колоды: <b>${c.ru}</b>${c.gold?` +${fmt(c.gold)}💰`:''}${c.reshuffle?' · колода перетасована':''}</p>${c.item?itemHtml(c.item,'',3):''}`;}
@@ -197,7 +209,7 @@ function celebrate(){if(window.matchMedia&&matchMedia('(prefers-reduced-motion: 
  const cols=['#f08a00','#ffd166','#8e44c9','#2f7fd8','#3fa34d'];for(let i=0;i<36;i++){const e=document.createElement('i');e.className='confetti';e.style.left=Math.random()*100+'vw';
   e.style.background=cols[i%5];e.style.animationDelay=Math.random()*0.3+'s';e.style.setProperty('--dx',(Math.random()*120-60)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),2000);}}
 const TABS=[['run','⚔️','Поход',()=>1],['hero','🛡️','Снаряжение',()=>1],['games','🎲','Испытания',U=>U.monty||U.deck||U.dive||U.kelly],['shop','🪙','Лавка',U=>U.shop]];
-const GAMES=[['guidesCard','🎁','Сундуки',U=>U.monty&&S.monty.guides],['diveCard','🕳️','Погружение',U=>U.dive],['kellyCard','🪙','Монета',U=>U.kelly],['deckCard','🃏','Колода',U=>U.deck]];
+const GAMES=[['guidesCard','🎁','Сундуки',U=>U.monty&&S.monty.guides],['diveCard','🕳️','Погружение',U=>U.dive],['kellyCard','🪙','Монета',U=>U.kelly],['deckCard','🃏','Колода',U=>U.deck],['arenaCard','🤺','Арена',U=>U.duel]];
 function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.toggle('tabs',on);$('tabs').hidden=!on;
  const av=TABS.filter(t=>t[3](U));if(S.tab!=='stats'&&!av.find(t=>t[0]===S.tab))S.tab='run';$('menu').hidden=!on;$('menu').classList.toggle('sel',S.tab==='stats');
  const better=S.inv.some(isBetter);
@@ -205,7 +217,7 @@ function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.to
  const gs=GAMES.filter(g=>g[3](U));if(!gs.find(g=>g[0]===S.game))S.game=gs.length?gs[0][0]:null;
  if(S.tab==='games')$('gameTiles').innerHTML=gs.map(g=>`<button class="tile ${S.game===g[0]?'sel':''}" data-game="${g[0]}"><i>${g[1]}</i><span>${g[2]}</span></button>`).join('');
  document.querySelectorAll('main [data-tab]').forEach(el=>el.classList.toggle('off',!(el.id==='diveCard'&&S.dive&&S.dive.route)&&(on&&el.dataset.tab!==S.tab||(S.tab==='games'&&el.id&&GAMES.some(g=>g[0]===el.id)&&el.id!==S.game))));
- const ev=['montyCard','secCard','mimicCard','shrineCard'].some(k=>!$(k).hidden)||!!(S.dive&&S.dive.route);document.body.classList.toggle('evopen',ev);}
+ const ev=['montyCard','secCard','mimicCard','shrineCard','duelCard'].some(k=>!$(k).hidden)||!!(S.dive&&S.dive.route);document.body.classList.toggle('evopen',ev);}
 let AC=null;function beep(f,d=0.12,v=0.05){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
  o.frequency.value=f;o.type='sine';g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
 function lootSound(items){if(!items.length)return;const r=Math.max(...items.map(i=>i.r));beep(330+r*110,0.15);if(r===4)setTimeout(()=>beep(880,0.3),150);}
@@ -277,6 +289,13 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='go'){G.startRun(S);}
  else if(b.id==='heal'){G.healNow(S);}
  else if(b.id==='bagAll'){S.bagAll=!S.bagAll;}
+ else if(b.id==='expSave'){save();const t=$('saveCode');t.hidden=false;t.value=btoa(unescape(encodeURIComponent(JSON.stringify(S))));t.select();try{navigator.clipboard&&navigator.clipboard.writeText(t.value);toast('Код скопирован');}catch(e){}}
+ else if(b.id==='impSave'){const t=$('saveCode');if(t.hidden||!t.value.trim()){t.hidden=false;t.value='';t.focus();toast('Вставьте код и нажмите «Импорт» ещё раз');}else{let n=null;try{n=G.load(decodeURIComponent(escape(atob(t.value.trim()))));}catch(e){}if(!n)toast('Код не подошёл');else if(confirm('Заменить текущий прогресс импортированным?')){try{localStorage.setItem(KEY+'_bak_'+Date.now(),JSON.stringify(S));}catch(e){}S=n;RC=null;save();t.value='';t.hidden=true;toast('Сохранение загружено');}}}
+ else if(d.attr){G.attrAdd(S,d.attr);}else if(b.id==='attrReset'){G.attrReset(S);}
+ else if(b.id==='duelGo'){const pr=S.energy<G.DUEL_COST;G.duelStart(S,Math.random,{free:pr,practice:pr});S.dA=S.dB=null;}
+ else if(d.da!==undefined){S.dA=+d.da;}else if(d.db!==undefined){S.dB=+d.db;}
+ else if(b.id==='duelHit'&&S.duel&&S.dA!=null&&S.dB!=null){const r=G.duelRound(S,S.dA,S.dB);if(r){beep(r.hit?660:330);}}
+ else if(b.id==='duelEnd'){G.duelEnd(S);S.dA=S.dB=null;}
  else if(d.skin&&G.skinOk(S,d.skin)){S.skin=d.skin;}
  else if(d.abyss&&!S.run){const cur=S.loc>=G.BASE_N?S.loc-G.BASE_N+1:0;const n=Math.max(1,Math.min(G.abyssMax(S)+1,cur+(+d.abyss)));S.loc=G.BASE_N-1+n;}
  else if(d.shr!==undefined){const f=+d.shr;if(f>0){const r=G.shrineBet(S,f);if(r)toast(r.win?`⛩ Выигрыш +${fmt(r.st)}💰 в мешок`:`⛩ Проигрыш −${fmt(r.st)}💰`);}S.shrineOpen=0;}
@@ -298,7 +317,7 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else return;unlocks();checkWin();render();});
 function checkWin(){if(S.won&&!S.summarySeen){S.summarySeen=1;MQ.push(luckSummary());showModal();}}
 let lastT=Date.now(),saveT=0;
-function tick(){const n=Date.now();if(!document.hidden)S.playMs+=Math.min(1000,n-lastT);lastT=n;if(n-saveT>5000){saveT=n;save();}if(S.run&&!S.run.waiting&&Date.now()>=S.run.endAt){stage();return;}const e=S.energy;header();const hs=Math.ceil(G.hurtLeft(S)/1000);if((S.energy!==e||hs!==window.__hs)&&!S.run){window.__hs=hs;render();}else tickProg();}
+function tick(){const n=Date.now();if(!document.hidden)S.playMs+=Math.min(1000,n-lastT);lastT=n;if(n-saveT>3000){saveT=n;save();}if(S.run&&!S.run.waiting&&Date.now()>=S.run.endAt){stage();return;}const e=S.energy;header();const hs=Math.ceil(G.hurtLeft(S)/1000);if((S.energy!==e||hs!==window.__hs)&&!S.run){window.__hs=hs;render();}else tickProg();}
 setInterval(tick,250);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){G.tickEnergy(S);offlineReport(G.offline(S));render();}else save();});
 const offEv=G.offline(S);render();if(!S.runs&&!S.run&&!S.rebirths)popup('start');offlineReport(offEv);if(migrated)showReport('<p>Игра сильно обновилась — старое сохранение несовместимо, начинаем заново.</p>');

@@ -80,16 +80,43 @@ function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*
 const UNLOCKS=[
  {k:'shop',need:s=>s.runs>=3},{k:'chips',need:s=>s.runs>=5},{k:'stages',need:s=>s.runs>=12},{k:'stats',need:s=>s.runs>=15},
  {k:'locs',need:s=>s.runs>=17&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=20},{k:'sets',need:s=>s.runs>=23},{k:'monty',need:s=>s.runs>=26},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
- {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'deck',need:s=>s.runs>=35},{k:'offline',need:s=>s.runs>=38},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
+ {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'deck',need:s=>s.runs>=35},{k:'offline',need:s=>s.runs>=38},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'duel',need:s=>s.runs>=20},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
-function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
+// hero attributes: 1 point per level; modest sidegrades
+const ATTR={str:{ru:'Сила',ic:'💪',d:'+3% урона (и в дуэли)'},agi:{ru:'Ловкость',ic:'🤸',d:'−1% риска гибели; +1.6% уворота в дуэли'},int:{ru:'Интуиция',ic:'👁',d:'+1.5% удачи; +3.5% крита в дуэли'},end:{ru:'Выносливость',ic:'❤️',d:'+3% здоровья (и в дуэли)'}};
+function aSum(s){return Object.values(s.attr||{}).reduce((a,b)=>a+b,0);}
+function A(s,k){return (s.attr&&s.attr[k])||0;}
+function attrFree(s){return Math.max(0,(s.lvl-1)-Object.values(s.attr||{}).reduce((a,b)=>a+b,0));}
+function attrAdd(s,k){if(!ATTR[k]||attrFree(s)<=0)return false;s.attr[k]=(s.attr[k]||0)+1;return true;}
+function attrReset(s){const c=Math.round(50*LX(Math.max(0,...s.cleared)).lvl);if(s.gold<c)return false;s.gold-=c;s.attr={str:0,agi:0,int:0,end:0};return true;}
+// duel (Combats-style): pick attack zone + block zone; enemy has hidden habits (biased distributions)
+const ZONES=['голова','корпус','ноги'],DUEL_COST=4;
+function perm3(rng){const a=[0,1,2];for(let i=2;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function habit(rng){const w=[0.55,0.3,0.15];const p=perm3(rng);const o=[0,0,0];p.forEach((z,i)=>o[z]=w[i]);return o;}
+function duelStart(s,rng=Math.random,o={}){if(s.duel||!s.unl.duel)return false;if(!o.free){if(s.energy<DUEL_COST)return false;s.energy-=DUEL_COST;}
+ const loc=o.loc!==undefined?o.loc:Math.max(0,...s.cleared);const boss=!!o.boss;const names=['Разбойник','Наёмник','Гладиатор','Рыцарь-отступник','Чемпион арены'];
+ s.duel={loc,boss,route:!!o.route,practice:!!o.practice,name:boss?'Страж логова':names[Math.floor(rng()*names.length)],atk:habit(rng),blk:habit(rng),hp:100+3*A(s,'end'),max:100+3*A(s,'end'),ehp:Math.round((boss?130:105)*(1+0.015*aSum(s))),emax:Math.round((boss?130:105)*(1+0.015*aSum(s))),seen:{atk:[0,0,0],blk:[0,0,0]},log:[],round:0,done:false};return true;}
+function duelOdds(s){const d=s.duel;return{dodge:Math.min(0.4,0.08+0.016*A(s,'agi')),crit:Math.min(0.7,0.08+0.035*A(s,'int')),edodge:0.08,ecrit:0.1,dmg:Math.round(22*(1+0.03*A(s,'str'))),edmg:Math.round((d&&d.boss?26:22)*(1+0.006*aSum(s)))};}
+function pick(w,rng){let x=rng();for(let i=0;i<3;i++){x-=w[i];if(x<0)return i;}return 2;}
+function duelRound(s,a,b,rng=Math.random){const d=s.duel;if(!d||d.done)return null;const O=duelOdds(s);const ea=pick(d.atk,rng),eb=pick(d.blk,rng);d.seen.atk[ea]++;d.seen.blk[eb]++;d.round++;
+ const r={a,b,ea,eb,hit:false,ehit:false};
+ if(a!==eb&&rng()>=O.edodge){r.crit=rng()<O.crit;r.hit=Math.round(O.dmg*(r.crit?2:1));d.ehp-=r.hit;}
+ if(ea!==b&&rng()>=O.dodge){r.ecrit=rng()<O.ecrit;r.ehit=Math.round(O.edmg*(r.ecrit?1.8:1));d.hp-=r.ehit;}
+ d.log.push(r);if(d.ehp<=0||d.hp<=0){d.done=true;d.win=d.ehp<=0&&d.hp>0||(d.ehp<=0&&d.hp<=0&&rng()<0.5);duelPay(s,rng);}return r;}
+function duelPay(s,rng){const d=s.duel;s.duelStats.n++;if(!d.win){d.reward=null;return;}s.duelStats.w++;
+ if(d.practice){d.reward=Math.round(3*LX(d.loc).lvl);s.gold+=d.reward;return;}
+ const r=d.boss?(rng()<0.3?4:3):(rng()<0.2?3:2);const it=makeItem(s,d.loc,r,rng,d.boss?3:0,null,d.boss?1:0);if(d.route&&s.run){s.run.loot.push(it);}else{it.fresh=true;s.inv.push(it);}d.reward=it;}
+function duelEnd(s){const d=s.duel;s.duel=null;return d;}
+// best response from observed frequencies (what an attentive player would do)
+function duelHint(s){const d=s.duel;if(!d)return null;const n=d.round;const sa=d.seen.atk.map(x=>(x+1)/(n+3)),sb=d.seen.blk.map(x=>(x+1)/(n+3));return{atk:sb.indexOf(Math.min(...sb)),blk:sa.indexOf(Math.max(...sa)),pa:sa,pb:sb};}
+function newState(){return{attr:{str:0,agi:0,int:0,end:0},duel:null,duelStats:{n:0,w:0,hist:[0,0,0]},ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
  chips:2,hpUp:0,dmgUp:0,maxEUp:0,regenUp:0,guideUp:0,lensUp:0,bagUp:0,bootsUp:0,doorsUp:0,
  alloc:[0,0,0],inv:[],cons:{},arm:{},weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
-function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);if(n.monty.guides&&(n.monty.guides.length!==5||n.monty.guides.some(g=>!GTYPES.includes(g.type)))){n.monty.guides=null;initGuides(n);}return n;}}catch(e){}return null;}
+function load(raw){try{const s=JSON.parse(raw);if(s&&typeof s==='object'&&s.ver>=4){const D=newState();const n=Object.assign(newState(),s,{ver:Math.max(SAVE_VER,s.ver)});for(const k in D)if(D[k]&&typeof D[k]==='object'&&!Array.isArray(D[k])&&s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k])&&k!=='stats')n[k]=Object.assign(D[k],s[k]);if(!Array.isArray(n.cleared))n.cleared=[];if(!Array.isArray(n.inv))n.inv=[];if(!(n.loc>=0))n.loc=0;n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);if(n.monty.guides&&(n.monty.guides.length!==5||n.monty.guides.some(g=>!GTYPES.includes(g.type)))){n.monty.guides=null;initGuides(n);}return n;}}catch(e){}return null;}
 // --- hero
 const SKIN_U={wander:{need:()=>true,b:['regen',[2,3,4]],how:'с самого начала'},knight:{need:s=>s.runs>=40,b:['hpPct',[2,3,4]],how:'40 походов'},witch:{need:s=>s.monty.plays>=20,b:['luck',[2,3,4]],how:'20 раундов в сундуках'},shade:{need:s=>(s.bosses||0)>=1,b:['riskRed',[1,2,3]],how:'победить босса'},lich:{need:s=>abyssMax(s)>=3,b:['goldPct',[3,4,5]],how:'глубина Бездны 3'}};
 function skinOk(s,k){return !!SKIN_U[k]&&SKIN_U[k].need(s);}
@@ -98,8 +125,8 @@ function skinB(s,k){const sk=SKIN_U[s.skin||'wander'];return sk&&sk.b[0]===k&&sk
 function aff(s,k,eq){eq=eq||eqOf(s);let v=setBonus(s,k)+setAff(s,k,eq);v+=skinB(s,k);for(const it of eq){if(it)for(const a of it.affixes)if(a.k===k)v+=a.v;}return v;}
 function itemPower(it){return Math.round(it.power*Math.pow(1.12,it.lvl||0));}
 function synMul(n,a,b){return n>=3?b:n>=2?a:1;}
-function heroDmg(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const w=P(0)+P(4)*0.25+P(5)*0.1;return Math.round((10+(s.lvl-1)*2+s.dmgUp*3+w)*(1+aff(s,'dmgPct',eq)/100)*synMul(syn(s,'fire',eq),1.15,1.4));}
-function heroHp(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const a=P(1)*3+P(3)*0.8+P(5)*0.4;return Math.round((50+(s.lvl-1)*8+s.hpUp*12+a)*(1+aff(s,'hpPct',eq)/100)*synMul(syn(s,'ice',eq),1.15,1.4));}
+function heroDmg(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const w=P(0)+P(4)*0.25+P(5)*0.1;return Math.round((10+(s.lvl-1)*2+s.dmgUp*3+w)*(1+aff(s,'dmgPct',eq)/100)*synMul(syn(s,'fire',eq),1.15,1.4)*(1+0.03*A(s,'str')));}
+function heroHp(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const a=P(1)*3+P(3)*0.8+P(5)*0.4;return Math.round((50+(s.lvl-1)*8+s.hpUp*12+a)*(1+aff(s,'hpPct',eq)/100)*synMul(syn(s,'ice',eq),1.15,1.4)*(1+0.03*A(s,'end')));}
 function heroPower(s,eq){const p=Math.round(heroDmg(s,eq)+heroHp(s,eq)/4);if(!eq)s._skp=p;return p;}
 function xpNeed(l){return Math.round(40*Math.pow(1.3,l-1));}
 function addXp(s,x){if(s.lvl>=MAX_LVL)return 0;s.xp+=x;let up=0;while(s.lvl<MAX_LVL&&s.xp>=xpNeed(s.lvl)){s.xp-=xpNeed(s.lvl);s.lvl++;up++;}return up;}
@@ -122,14 +149,14 @@ function rolls(s){return Math.max(1,(s.unl&&s.unl.stages?1:2)+s.bagUp+stance(s).
 function extraP(s){return stance(s).xp||0;}
 function stanceInfo(s,loc,k){const o=s.stance;s.stance=k;const c=rarChances(s,loc),n=rolls(s),x=extraP(s);s.stance=o;const p=c[2]+c[3]+c[4];const any=1-Math.pow(1-p,n)*(1-x*p);return{n,x,p,any,leg:1-Math.pow(1-c[4],n)};}
 // --- drop chances
-function luckMul(s){const n=syn(s,'luck');return 1+(aff(s,'luck')+s.lensUp*5+(s.perks.luck||0)*10+(n>=3?40:n>=2?15:0))/100;}
+function luckMul(s){const n=syn(s,'luck');return 1+(aff(s,'luck')+1.5*A(s,'int')+s.lensUp*5+(s.perks.luck||0)*10+(n>=3?40:n>=2?15:0))/100;}
 function rarChances(s,loc,stage=0){const m=LX(loc).mult*(1+0.12*stage+0.03*stage*stage)*luckMul(s);const w=RAR_W.map((x,r)=>x*Math.pow(m,r*0.6));if(dmod(s,'leg'))w[4]*=1.5;if(s._elix||(s.run&&s.run.buff&&s.run.buff.elixir))for(let r=2;r<5;r++)w[r]*=1.6;const st_=stance(s);const sm=s.unl&&s.unl.stages&&st_.rm2?st_.rm2:st_.rm;for(let r=2;r<5;r++)w[r]*=sm;const t=w.reduce((a,b)=>a+b,0);return w.map(x=>x/t);}
 function itemValue(s,loc,r,stage=0){return Math.round(RAR_VAL[r]*LX(loc).lvl*(1+0.2*stage+0.06*stage*stage)*(1+aff(s,'goldPct')/100)*(1+0.25*s.rebirths)*(dmod(s,'gold')?1.25:1));}
 function chipChance(s,loc,t,stage=0){return Math.min(0.9,(syn(s,'crit')>=3?1.3:1)*(dmod(s,'chips')?1.25:1)*CHIP_T[t].p*Math.pow(LX(loc).mult,0.5+t*0.25)*(1+0.1*stage)*luckMul(s));}
 function riskWeight(alloc){return alloc[0]*0.05+alloc[1]*0.15+alloc[2]*0.3;}
 function deathChance(s,loc,alloc,stage){if(!s.unl.stages)return 0;if(stage===0&&rule(s,'safe1'))return 0;const L=LX(loc);const def=heroHp(s)+3*heroDmg(s);
  const sf=loc===0?(1+0.25*stage)*0.7:(1+0.3*stage+0.12*stage*stage);const d=0.22*locThreat(s,loc)*sf*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
- return Math.max(0.005,Math.min(loc===0?0.04:0.9,stance(s).dm*d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)*(dmod(s,'safe')?0.75:1)*(syn(s,'shadow')>=3?0.7:syn(s,'shadow')>=2?0.85:1)));}
+ return Math.max(0.005,Math.min(loc===0?0.04:0.9,stance(s).dm*d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)*(1-0.01*A(s,'agi'))*(dmod(s,'safe')?0.75:1)*(syn(s,'shadow')>=3?0.7:syn(s,'shadow')>=2?0.85:1)));}
 function stageEV(s,loc,alloc,stage){const c=rarChances(s,loc,stage);let v=(rolls(s)+extraP(s))*c.reduce((a,p,r)=>a+p*itemValue(s,loc,r,stage),0);
  alloc.forEach((n,t)=>{if(n)v+=expPaid(n,chipChance(s,loc,t,stage),thr(s,t))*itemValue(s,loc,CHIP_T[t].r,stage);});return v;}
 // --- items
@@ -178,6 +205,7 @@ const NODES={fight:{ru:'Бой',ic:'⚔️',w:55,d:'обычный этап: д�
  mimic:{ru:'Подозрительный сундук',ic:'👀',w:12,need:'mimic',d:'мимик или клад? (Байес), риск ×0.5'},merchant:{ru:'Странник',ic:'🧳',w:8,need:'secretary',d:'задача о секретаре, риск ×0.5'},
  shaft:{ru:'Шахта',ic:'🕳️',w:10,need:'dive',d:'бесплатное погружение, риск ×0.5'},
  boss:{ru:'Логово босса',ic:'💀',w:0,d:'риск ×3, но гарантированный эпик+ с бонусом качества, шанс части сета 40%, мелочь ×3'},
+ duel:{ru:'Поединок',ic:'🤺',w:9,need:'duel',d:'дуэль: угадайте привычки врага, риск ×0.5'},
  shrine:{ru:'Алтарь',ic:'⛩',w:8,need:'kelly',d:'ставка мелочью из мешка (Келли), риск ×0.5'}};
 // shrine: bet a fraction of the run's melted cash on a 60% coin, stake capped
 const SHRINE_P=0.6;function shrineStake(s,f){const r=s.run;if(!r)return 0;return Math.min(Math.round((r.cash||0)*f),kellyCap(s));}
@@ -425,7 +453,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,diveRoute,extraP,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,SKIN_U,skinOk,skinStage,skinB,LX,abyss,abyssMax,BASE_N,rollQ,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,diveRoute,extraP,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,SKIN_U,skinOk,ATTR,A,attrFree,attrAdd,attrReset,ZONES,DUEL_COST,duelStart,duelOdds,duelRound,duelEnd,duelHint,skinStage,skinB,LX,abyss,abyssMax,BASE_N,rollQ,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};

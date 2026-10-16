@@ -104,3 +104,9 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  assert(n&&tagged===n,'risky items tagged');assert(bonus>30&&bonus<200,'risky bonus roll '+bonus);
  const d=G.newState();d.unl={dive:1,stages:1};d.energy=50;G.startRun(d);d.run.waiting=true;assert(G.diveRoute(d)&&d.energy===50-G.runCost(d,0),'route dive free');d.dive.pot.gold=77;G.diveCashOut(d);assert(d.run.cash===77&&d.gold===0,'route dive pays into bag');}
 console.log('TESTS OK');
+// old-save migration: v4-style minimal save and a v11 save must load without reset
+{const old={ver:4,gold:123,lvl:7,xp:3,runs:30,inv:[],cleared:[0,1],unl:{shop:1,stages:1},monty:{plays:3,since:0,stats:{stay:[0,0],switch:[0,0]}},perks:{},weapon:null,armor:null,charm:null};
+ const n=G.load(JSON.stringify(old));assert(n&&n.gold===123&&n.lvl===7&&n.runs===30,'old save load');assert(n.attr&&n.duelStats&&n.cons!==undefined,'new fields default');
+ assert(G.attrFree(n)===6,'attr points from level');G.heroPower(n);G.deathChance(n,1,[0,0,0],1);G.startRun(n);
+ const fut=G.load(JSON.stringify(Object.assign(G.newState(),{ver:999,gold:5})));assert(fut&&fut.gold===5,'future ver keeps progress');
+ console.log('SAVE MIGRATION OK');}

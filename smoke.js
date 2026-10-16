@@ -18,5 +18,5 @@ W.__S().lastSeen=T-3*3600e3;W.__S().unl.offline=1;W.__off();c('#mok');unlocks:{W
 W.__S().tab='stats';W.__R();c('[data-perk="luck"]');if(W.__S().rebirths!==1)throw 'rebirth '+W.__S().won+' '+W.__S().unl.rebirth+' '+W.__S().runs+' '+Object.keys(W.__S().unl).join();
 console.log('unlock progression:',log.slice(-1)[0],'runs',W.__S().runs,'monty',W.__S().monty.plays);
 c('#evalb');if(W.__S().unl.eval&&!D.querySelector('.hist'))throw 'no eval';
-c('.tip');c('#mok');c('[data-guess="0"][data-gt="honest"]');D.querySelector('footer button:last-child').click();if(!W.__S().unl.rebirth||W.__S().gold<1e6)throw 'debug';c('#reset');
+c('.tip');c('#mok');c('[data-guess="0"][data-gt="honest"]');D.querySelector('footer > button:last-child').click();if(!W.__S().unl.rebirth||W.__S().gold<1e6)throw 'debug';c('#reset');
 if(errs.length)throw errs;console.log('SMOKE OK');W.close();
