@@ -175,3 +175,4 @@ html{background:#16191f}.stance button small{display:block}.stance button{font-s
 .pin span{font-size:.62rem;white-space:nowrap;text-shadow:0 1px 2px #000}.pin.done i{border-color:#3c7d4a;color:#8fd19c}.pin.sel i{border-color:var(--gold);box-shadow:0 0 10px #d8b25a88;color:var(--gold)}.pin.lock{opacity:.55}
 .pin:disabled{opacity:.5}.pin.sel:disabled{opacity:1}
 .tier{grid-template-columns:minmax(78px,max-content) 1fr auto}.tier b{white-space:nowrap}
+@media(min-width:521px){.chip{grid-template-columns:minmax(110px,max-content) 1fr auto}}.chip{border-color:var(--line)}
