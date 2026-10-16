@@ -119,3 +119,9 @@ console.log('TESTS OK');
  let run=0;for(let st=0;st<L.stages;st++)run+=G.stageEV(s,5,[0,0,0],st);const runPerMin=run/G.runCost(s,5)*(60/9);
  console.log('no-energy practice/min',practicePerMin.toFixed(0),'vs runs/min',runPerMin.toFixed(0));assert(practicePerMin<runPerMin*0.1,'practice << runs');
  let mq=0;for(let i=0;i<1e5;i++)mq=Math.max(mq,G.rollQ(Math.random));assert(mq>=4&&mq<15,'quality tail sane '+mq);console.log('ENDLESS OK');}
+// duel: thinking beats random, duels stay short
+{const R=()=>Math.floor(Math.random()*5);const play=(smart,n=3000)=>{let w=0,r=0;for(let i=0;i<n;i++){const s=G.newState();s.unl.duel=1;s.lvl=15;G.duelStart(s,Math.random,{free:1});while(!s.duel.done){const h=G.duelHint(s);G.duelRound(s,smart?{st:'basic',a:[h.atk],b:[h.blk],sp:s.duel.blocked&&s.duel.charge>=2?'counter':s.duel.charge>=3?'precise':null}:{st:'basic',a:[R()],b:[R()]});}r+=s.duel.round;if(s.duel.win)w++;}return[w/n,r/n];};
+ const a=play(false),b=play(true);console.log('duel random',a.map(x=>x.toFixed(2)).join('/'),'smart',b.map(x=>x.toFixed(2)).join('/'));assert(b[0]>a[0]+0.15&&a[1]<9&&b[1]<9,'duel balance');
+ // penney / cards: optimal clearly beats naive
+ let pw=0,pn=0;for(let i=0;i<4000;i++){const s=G.newState();s.unl.penney=1;G.penStart(s,Math.random,{free:1,practice:1});G.penPick(s,G.penCounter(s.pen.opp));if(s.pen.win)pw++;let me;do{me=[0,1,2].map(()=>Math.random()<.5?'О':'Р').join('')}while(me===s.pen.opp);}
+ assert(pw/4000>0.65,'penney optimal');console.log('TRIALS OK');}
