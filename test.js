@@ -15,7 +15,7 @@ function bot(seed,pre){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Mat
    if(G.deathChance(s,s.run.loc,s.run.alloc,s.run.stage)>0.12){G.bank(s);break;}adv(1000);G.continueRun(s,now);}
   const nu=G.checkUnlocks(s);if(process.env.TR&&nu.length)console.log('  unlock',nu.join(),'at',(now/60000).toFixed(1)+'m','run',s.runs);if(nu.length&&now>300000&&!t5)t5=s.runs;
   if(G.maybeMonty(s,rng)){G.montyPick(s,0,rng);const c=G.montyClosed(s.monty.pending);G.montyFinal(s,c.length?c[0]:0,rng);G.montyClear(s);adv(5000);}
-  G.equipBest(s);s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
+  G.equipBest(s);s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}G.drawCard(s,s.loc,rng);if(G.maybeSecretary(s,rng)){while(s.sec)G.secPass(s);}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
   let b=true;while(b){b=false;const o=Object.keys(G.SHOP).filter(k=>(k!=='scroll'||s.scrolls<2)&&G.shopAvail(s,k)&&G.SHOP[k](s)<Infinity).sort((x,y)=>G.SHOP[x](s)-G.SHOP[y](s));if(o.length&&s.gold>=G.SHOP[o[0]](s))b=G.buy(s,o[0]);}
   if(process.env.TR&&n%20==0)console.log(Math.round(now/60000)+'m',s.runs,s.loc,G.heroPower(s),s.lvl,Object.keys(s.unl).join());}
  return{s,min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
@@ -38,4 +38,11 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  assert(G.luckVerdict(30,20).v==='необычно везёт'&&G.luckVerdict(22,20).v==='в пределах случайности','ci');
  const a=G.newState();a.runs=1;assert(G.checkAch(a).length===1&&G.checkAch(a).length===0,'ach');
  const w=G.newState();w.won=true;w.rebirths=2;assert(G.perksAvail(w).length===8&&G.rebirth(w,'noThresh'),'t2');w.unl.thresh=1;assert(G.thr(w,1)===1,'nothresh');}
+{const s=G.newState();s.unl.deck=1;const d=G.deckOf(s,0);assert(G.deckLeft(d)===G.DECK_N,'deck');
+ assert(Math.abs(G.pWithin(d,'leg',1)-1/12)<1e-9&&Math.abs(G.pWithin(d,'leg',12)-1)<1e-9,'hyper');
+ let legs=0;for(let i=0;i<12;i++){const c=G.drawCard(s,0);if(c.k==='leg')legs++;}assert(legs===1&&!s.decks[0],'deck cycle');
+ // secretary: 1/e strategy should pick best ~37%+
+ let best=0;for(let t=0;t<3000;t++){const q=G.newState();q.unl.secretary=1;G.maybeSecretary(q,Math.random,true);let r;
+  while(q.sec){const cur=G.score(G.secCur(q));if(q.sec.i>=3&&cur>G.secSeenBest(q)){r=G.secTake(q);}else r=G.secPass(q);} if(r&&r.rank===1)best++;}
+ console.log('secretary best rate',(best/3000).toFixed(3));assert(best/3000>0.3,'sec');}
 console.log('TESTS OK');

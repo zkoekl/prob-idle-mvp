@@ -65,7 +65,7 @@ function render(){header();const U=S.unl;$('win').hidden=!S.won;
  ${(S.weapon||S.armor||S.charm)?`<div class="slots">${slot('weapon')}${slot('armor')}${slot('charm')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
  (U.pity&&S.shards>=G.SHARDS_FOR_PITY?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
  renderTabs();renderKelly();renderRebirth();$('snd').textContent=S.sound?'🔊':'🔇';
- renderRun();renderChips();renderMonty();renderMimic();renderStats();renderSets();
+ renderRun();renderChips();renderMonty();renderDeck();renderSec();renderMimic();renderStats();renderSets();
  $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];renderGuides();renderHowto();
  $('locCard').hidden=!U.locs;
  if(U.locs)$('locs').innerHTML=G.LOCS.map((l,i)=>{const u=G.unlocked(S,i);const why=!S.cleared.includes(i-1)?'пройдите предыдущую до конца':`нужна сила ${G.locReq(S,i)}`;
@@ -115,7 +115,18 @@ function renderGuides(){const gs=S.monty.guides;$('guidesCard').hidden=!gs;if(!g
  ${S.monty.guess[i]==='ok'?'':`<div class="btns"><button class="small" data-guess="${i}" data-gt="honest">Честный</button><button class="small" data-guess="${i}" data-gt="unreliable">Ненадёжный</button><button class="small" data-guess="${i}" data-gt="random">Случайный</button></div>`}</div>`).join('')+
  '<div class="hint">Подсказка (3 сундука): у честного смена выигрывает ~67%, у случайного ~50% (раунды, где он открыл приз, не считаются), ненадёжный — между. Ошибка сбрасывает статистику проводника.</div>';}
 function renderHowto(){$('howto').innerHTML=['start',...G.UNLOCKS.map(u=>u.k).filter(k=>S.unl[k])].map(k=>`<p><b>${HELP[k][0]}.</b> ${HELP[k][1]}</p>`).join('')+'<p class="hint">Остальное откроется по мере игры.</p>';}
-function afterRun(){if(!G.maybeMonty(S))G.maybeMimic(S);}
+let lastCard=null;function afterRun(){const c=G.drawCard(S,S.loc);lastCard=c;if(!G.maybeMonty(S)&&!G.maybeMimic(S))G.maybeSecretary(S);return c;}
+function cardHtml(c){if(!c)return'';return `<p>🃏 Карта колоды: <b>${c.ru}</b>${c.gold?` +${fmt(c.gold)}💰`:''}${c.reshuffle?' · колода перетасована':''}</p>${c.item?itemHtml(c.item,'',3):''}`;}
+function renderDeck(){$('deckCard').hidden=!S.unl.deck;if(!S.unl.deck)return;const d=G.deckOf(S,S.loc),N=G.deckLeft(d);
+ $('deck').innerHTML=`<div class="hint">В колоде «${G.LOCS[S.loc].name}» осталось ${N} из ${G.DECK_N} карт. Каждый сохранённый поход тянет одну; вытянутые не возвращаются.</div>
+ <table><tr><th>Карта</th><th>Осталось</th><th>Следующая</th><th>За 3 похода</th></tr>${G.DECK.map(c=>`<tr><td>${c.ru}</td><td>${d[c.k]}/${c.n}</td><td>${pct(N?d[c.k]/N:0)}</td><td>${pct(G.pWithin(d,c.k,3))}</td></tr>`).join('')}</table>`;}
+function renderSec(){const m=S.sec;$('secCard').hidden=!m;if(!m)return;const it=G.secCur(S);const sb=G.secSeenBest(S);const sc=Math.round(G.score(it));
+ $('sec').innerHTML=`<div>Странник показывает товары по одному: <b>${m.i+1} из ${G.SEC_N}</b>. Можно забрать один бесплатно — но вернуться к пропущенному нельзя.</div>${itemHtml(it)}
+ <div class="hint">Ценность: <b>${sc}</b> · лучшая из виденных: ${sb<0?'—':Math.round(sb)} ${sb>=0&&sc>sb?'<b class="good">— это лучше всех до сих пор!</b>':''}</div>
+ <div class="row"><button id="secTake" class="ok">Забрать</button><button id="secPass" ${m.i>=G.SEC_N-1?'disabled':''}>Дальше ➡️</button></div>`;}
+function celebrate(){if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;document.body.classList.remove('shake');void document.body.offsetWidth;document.body.classList.add('shake');
+ const cols=['#f08a00','#ffd166','#8e44c9','#2f7fd8','#3fa34d'];for(let i=0;i<36;i++){const e=document.createElement('i');e.className='confetti';e.style.left=Math.random()*100+'vw';
+  e.style.background=cols[i%5];e.style.animationDelay=Math.random()*0.3+'s';e.style.setProperty('--dx',(Math.random()*120-60)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),2000);}}
 const TABS=[['run','⚔️ Поход',()=>1],['hero','🧍 Герой',()=>1],['shop','🛒 Лавка',U=>U.shop],['games','🎲 Игры',U=>U.variants||U.kelly],['stats','📈 Итоги',U=>U.stats||U.sets]];
 function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.toggle('tabs',on);$('tabs').hidden=!on;
  const av=TABS.filter(t=>t[2](U));if(!av.find(t=>t[0]===S.tab))S.tab='run';
@@ -147,7 +158,7 @@ function offlineReport(ev){if(!ev)return;const ru={merchant:'🧳 Торгове
  for(const e of ev.events)t+=`${ru[e.type]}: ${e.n} раз (в среднем ожидалось ${e.lt.toFixed(2)}, шанс ровно ${e.n} = ${pct(e.p)})<br>`;
  if(ev.merchantGold)t+=`Торговец скупил хлам: +${fmt(ev.merchantGold)}💰<br>`;if(ev.boss)t+=`Побеждён босс! Трофеи: ${ev.boss.map(i=>`<span class="r-${i.rarity}">${i.name}</span>`).join(', ')}<br>`;
  if(ev.bossLost)t+=`Босс отбился ${ev.bossLost} раз(а) — без потерь.<br>`;MQ.push(['🌙 Пока вас не было',t]);showModal();}
-function showReport(h){$('reportCard').hidden=false;const better=S.inv.some(i=>!S[i.slot]||G.score(i)>G.score(S[i.slot]));$('report').innerHTML=h+(better?'<div class="row"><button id="autoeq2" class="ok small">Надеть лучшее</button></div>':'');}
+function showReport(h){$('reportCard').hidden=false;if(h.includes('item legendary'))celebrate();const better=S.inv.some(i=>!S[i.slot]||G.score(i)>G.score(S[i.slot]));$('report').innerHTML=h+(better?'<div class="row"><button id="autoeq2" class="ok small">Надеть лучшее</button></div>':'');}
 function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;lootSound(r.drops);if(r.died)beep(140,0.4);
  let h=S.unl.stages?`<p><b>Этап ${r.stage}</b></p>`:'';
  if(r.chips.length)h+=`<p class="hint">Фишки: ${r.chips.map(x=>`<span class="r-${G.RARS[G.CHIP_T[x.t].r]}">${G.CHIP_T[x.t].ru} ${x.k}/${x.n}${x.k&&!x.paid?' — ниже порога':''}</span>`).join(', ')}</p>`;
@@ -156,7 +167,7 @@ function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;lootSound(
  h+=r.drops.map((x,i)=>itemHtml(x,S[x.slot]&&G.score(x)>G.score(S[x.slot])||!S[x.slot]?'<span class="badge better">▲</span>':'',i+1)).join('');
  if(r.trophy){const t=r.trophy,st=G.SETS[t.loc];h+=t.dup?`<p>🏺 Трофей «${st.ru}» №${t.k+1} — дубликат (+${t.gold}💰).</p>`:`<p class="good">🏺 Новый трофей «${st.ru}» №${t.k+1}!${t.done?' Коллекция собрана — бонус активен!':''}</p>`;}
  if(r.shards)h+=`<p>💎 +${r.shards} оск.</p>`;if(S.lvl>lvl0)h+=`<p class="good">⭐ Новый уровень: ${S.lvl}!</p>`;
- if(r.bank){h+=`<p class="good">🏠 ${r.finished&&S.unl.stages?'Локация пройдена до конца! ':''}Добыча сохранена: ${r.bank.items.length} предм. (${fmt(r.bank.gold)}💰)${r.bank.sold?`, автопродажа +${fmt(r.bank.sold)}💰`:''}.</p>`;afterRun();}
+ if(r.bank){h+=`<p class="good">🏠 ${r.finished&&S.unl.stages?'Локация пройдена до конца! ':''}Добыча сохранена: ${r.bank.items.length} предм. (${fmt(r.bank.gold)}💰)${r.bank.sold?`, автопродажа +${fmt(r.bank.sold)}💰`:''}.</p>`;h+=cardHtml(afterRun());}
  showReport(h);unlocks();checkWin();render();}
 document.addEventListener('change',e=>{if(e.target.id==='useScroll'){S.useScroll=e.target.checked;render();}});
 document.addEventListener('input',e=>{if(e.target.id==='kf'){S.kf=+e.target.value;const y=window.scrollY;renderKelly();const k=$('kf');if(k)k.focus();}});
@@ -167,6 +178,7 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(d.m!==undefined){if(S.alloc[+d.m]>0)S.alloc[+d.m]--;$('eval').innerHTML='';}
  else if(d.door!==undefined){const p=S.monty.pending;const i=+d.door;if(p.pick===null)G.montyPick(S,i);else if(!p.done&&(i===p.pick||G.montyClosed(p).includes(i)||(p.revealed&&i===p.prize)))G.montyFinal(S,i);}
  else if(b.id==='mclose')G.montyClear(S);
+ else if(b.id==='secTake'||b.id==='secPass'){const r=b.id==='secTake'?G.secTake(S):G.secPass(S);if(r&&r!=='next')showReport(`<p>Вы взяли товар №${r.all.indexOf(r.it)+1}: он ${r.rank===1?'<b class="good">лучший из всех 8!</b>':`${r.rank}-й по ценности из 8.`}</p>${itemHtml(r.it,'',1)}<p class="hint">Стратегия «1/e»: пропустить первые ~3 и взять первый, кто лучше всех виденных — так лучший достаётся ~40% раз.</p>`);}
  else if(b.id==='knock'){G.knock(S);}
  else if(b.id==='mopen'||b.id==='mleave'){const r=G.resolveMimic(S,b.id==='mopen');mimicReport(r);}
  else if(d.tab){S.tab=d.tab;window.scrollTo&&window.scrollTo(0,0);}
@@ -181,7 +193,7 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='pity'){const it=G.craftPity(S);if(it)showReport('<p>Создано:</p>'+itemHtml(it));}
  else if(b.id==='go'){G.startRun(S);}
  else if(b.id==='cont'){G.continueRun(S);}
- else if(b.id==='ret'){if(!S.run)return;const r=G.bank(S);showReport(`<p class="good">🏠 Вернулись. Сохранено ${r.items.length} предм. (${fmt(r.gold)}💰)${r.sold?`, автопродажа +${fmt(r.sold)}💰`:''}.</p>`+r.items.slice(-6).map((x,i)=>itemHtml(x,'',i+1)).join(''));afterRun();}
+ else if(b.id==='ret'){if(!S.run)return;const r=G.bank(S);showReport(`<p class="good">🏠 Вернулись. Сохранено ${r.items.length} предм. (${fmt(r.gold)}💰)${r.sold?`, автопродажа +${fmt(r.sold)}💰`:''}.</p>`+r.items.slice(-6).map((x,i)=>itemHtml(x,'',i+1)).join('')+cardHtml(afterRun()));}
  else if(b.id==='evalb'){runEval();return;}
  else if(b.id==='autoeq'||b.id==='autoeq2'){G.equipBest(S);if(b.id==='autoeq2')b.remove();}
  else if(b.id==='disAll'){S.inv.filter(i=>S[i.slot]&&G.score(i)<=G.score(S[i.slot])).map(i=>i.id).forEach(id=>G.dismantle(S,id));}
