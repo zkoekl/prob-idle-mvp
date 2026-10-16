@@ -45,3 +45,4 @@ body.theme-combats{min-height:100vh}
 @keyframes cb-burn{50%{box-shadow:inset 0 0 10px #000,0 0 14px #ff5a1f}}
 @media(max-width:620px){.cb-duel{grid-template-columns:1fr}.cb-slot{width:48px;height:48px}}
 body.theme-combats .nodebtn small{color:#f1dfb8;opacity:.9}
+.theme-combats [data-ev]:not([hidden]){position:fixed}
