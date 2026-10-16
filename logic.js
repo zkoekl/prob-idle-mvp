@@ -71,9 +71,9 @@ function pAtLeast(n,k,p){let s=0;for(let i=0;i<k;i++)s+=pmf(n,i,p);return Math.m
 function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*pmf(n,k,p);return s;}
 // --- unlocks
 const UNLOCKS=[
- {k:'shop',need:s=>s.runs>=3},{k:'chips',need:s=>s.runs>=5},{k:'stages',need:s=>s.runs>=20},{k:'stats',need:s=>s.runs>=22},
- {k:'locs',need:s=>s.runs>=24&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=27},{k:'sets',need:s=>s.runs>=29},{k:'monty',need:s=>s.runs>=32},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
- {k:'synergy',need:s=>s.runs>=30},{k:'thresh',need:s=>s.runs>=37},{k:'mimic',need:s=>s.runs>=41},{k:'deck',need:s=>s.runs>=44},{k:'offline',need:s=>s.runs>=46},{k:'eval',need:s=>s.runs>=48},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=52},{k:'secretary',need:s=>s.runs>=55},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
+ {k:'shop',need:s=>s.runs>=3},{k:'chips',need:s=>s.runs>=5},{k:'stages',need:s=>s.runs>=12},{k:'stats',need:s=>s.runs>=15},
+ {k:'locs',need:s=>s.runs>=17&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=20},{k:'sets',need:s=>s.runs>=23},{k:'monty',need:s=>s.runs>=26},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
+ {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=37},{k:'mimic',need:s=>s.runs>=41},{k:'deck',need:s=>s.runs>=44},{k:'offline',need:s=>s.runs>=46},{k:'eval',need:s=>s.runs>=48},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=52},{k:'secretary',need:s=>s.runs>=55},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
@@ -98,7 +98,8 @@ function locThreat(s,l){return Math.round(LOCS[l].threat*rbMul(s));}
 function unlocked(s,l){return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroPower(s)>=locReq(s,l));}
 // --- energy & time
 function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*20;}
-function regenSec(s){return 10*Math.pow(0.9,s.regenUp)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
+// early game: energy refills faster so the first minutes have little waiting
+function regenSec(s){return (s.runs<15?4:s.runs<30?7:10)*Math.pow(0.9,s.regenUp)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
 function tickEnergy(s,now=Date.now()){if(s.hurtMs>0&&!s.hurtAt)s.hurtAt=now;if(s.hurtAt&&now>=s.hurtAt+s.hurtMs){s.hurtMs=0;s.hurtAt=0;}if(!s.energyT){s.energyT=now;return;}const per=regenSec(s)*1000;
  if(s.energy>=maxEnergy(s)){s.energyT=now;return;}const n=Math.floor((now-s.energyT)/per);if(n>0){s.energy=Math.min(maxEnergy(s),s.energy+n);s.energyT+=n*per;}}
 function runCost(s,loc){return 3+loc*4;}
