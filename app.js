@@ -135,14 +135,20 @@ function renderSec(){const m=S.sec;$('secCard').hidden=!m;if(!m)return;const it=
  $('sec').innerHTML=`<div>Странник показывает товары по одному: <b>${m.i+1} из ${G.SEC_N}</b>. Можно забрать один бесплатно — но вернуться к пропущенному нельзя.</div>${itemHtml(it)}
  <div class="hint">Ценность: <b>${sc}</b> · лучшая из виденных: ${sb<0?'—':Math.round(sb)} ${sb>=0&&sc>sb?'<b class="good">— это лучше всех до сих пор!</b>':''}</div>
  <div class="row"><button id="secTake" class="ok">Забрать</button><button id="secPass" ${m.i>=G.SEC_N-1?'disabled':''}>Дальше ➡️</button></div>`;}
-function renderDive(){$('diveCard').hidden=!S.unl.dive;if(!S.unl.dive)return;const d=S.dive,D=G.DIVE;const p=d?d.p:G.diveP(S);const x=d?d.x:D.A;const ru=G.ruinP(p,x,D.N);
- const path=d?d.path:[D.A];const w=260,hgt=70,n=Math.max(12,path.length);const pts=path.map((v,i)=>`${(i/(n-1))*w},${(v/D.N)*hgt}`).join(' ');
- $('dive').innerHTML=`<svg viewBox="-4 -4 ${w+8} ${hgt+8}" class="divesvg"><rect x="-4" y="${hgt-2}" width="${w+8}" height="6" fill="#f08a0055"/><rect x="-4" y="-4" width="${w+8}" height="5" fill="#d9534f33"/>
- <polyline points="${pts}" fill="none" stroke="#2f7fd8" stroke-width="2.5" stroke-linejoin="round"/>${d?`<circle cx="${((path.length-1)/(n-1))*w}" cy="${(x/D.N)*hgt}" r="4.5" fill="#2f7fd8"/>`:''}</svg>
- <div class="kv"><span>Глубина</span><b>${x} / ${D.N}</b><span>Шаг вниз</span><b>${pct(p)}</b><span>Дойти до дна</span><b class="good">${pct(1-ru)}</b><span>Вынесет наверх (разорение)</span><b class="bad">${pct(ru)}</b>
- <span>Забрать сейчас</span><b>${fmt(G.diveCash(S,x))}💰</b><span>Награда на дне</span><b>легендарка + ${fmt(G.diveCash(S,D.N))}💰</b></div>
- <div class="row">${d?`<button id="dstep" class="big">⬇️ Шаг</button><button id="dcash" class="ok" ${x<=D.A?'disabled':''}>Забрать</button>`:`<button id="dstart" class="big" ${S.energy<D.cost?'disabled':''}>Спуститься (⚡${D.cost})</button>`}</div>
- <div class="hint">Погружений: ${S.diveStats.n}, до дна: ${S.diveStats.top}, разорений: ${S.diveStats.ruin}. Шаг вниз чуть менее вероятен, чем вверх — поэтому дно редкость.</div>`;}
+let DPOL='norm';
+function renderDive(){$('diveCard').hidden=!S.unl.dive;if(!S.unl.dive)return;const d=S.dive,D=G.DIVE;const p=d?d.p:G.diveP(S);const x=d?d.x:D.A;const mx=d?d.max:D.A;
+ const potG=d?d.pot.gold:0,potI=d?d.pot.items:[];const RIC=['⚪','🟢','🔵','🟣','🟠'];
+ let bar='';for(let y=0;y<=D.N;y++){const it=D.ITEMS[y];bar+=`<div class="dcell ${y===x&&d?'here':''} ${y<=mx&&y>D.A&&d?'got':''} ${y===0?'top':''} ${y===D.N?'bot':''}"><span>${y===0?'⛰ поверхность':y===D.N?'дно':y}</span>${it!==undefined?`<i>${y<=mx&&d?'✔':RIC[it]} ${G.RAR_RU[G.RARS[it]]}</i>`:''}${y>D.A?`<em>${fmt(G.diveCash(S,y))}💰</em>`:''}${y===x&&d?'<b>🧗</b>':''}</div>`;}
+ const pol=Object.entries(G.DSTEP).map(([k,P])=>{const sp=d?G.diveStepP(S,k):Math.max(0.05,Math.min(0.95,p+P.dp));const fin=G.divePolicyP(p,x,D.N,k,d&&d.rope);
+  return `<button class="${k===DPOL?'sel':''} ${d?'big':''}" data-dpol="${k}" ${!d||(P.e&&S.energy<P.e)?'disabled':''}>${P.ic} ${P.ru}${P.e?` (⚡${P.e})`:''}<br><small>успех ${pct(sp)} → ${P.m>1?'+2 вниз':'+1 вниз'}; провал −1<br>до дна так: ${pct(fin)}</small></button>`;}).join('');
+ $('dive').innerHTML=`<div class="dgoal"><b>Цель:</b> спуститься поглубже, собрать добычу и вовремя выйти. Если поднимет до поверхности (0), всё собранное пропадёт.</div>
+ <div class="dwrap"><div class="dbar">${bar}</div><div class="dside">
+ <div class="kv"><span>Глубина</span><b>${x} / ${D.N}</b><span>Шанс шага вниз</span><b>${pct(p)}${d&&d.nextT!==null?` <span class="${d.nextT>0?'good':d.nextT<0?'bad':''}">(факел: ${d.nextT>0?'+10%':d.nextT<0?'−10%':'±0'})</span>`:''}</b>
+ <span>В мешке сейчас</span><b>${fmt(potG)}💰${potI.length?' + '+potI.map(i=>RIC[i.r]).join(''):''}</b><span>На дне будет</span><b>${fmt(G.diveCash(S,D.N))}💰 + ${Object.values(D.ITEMS).map(r=>RIC[r]).join('')}</b></div>
+ ${d?`<div class="row"><button data-dbuy="rope" class="small" ${d.rope||S.gold<G.ropeCost(S)?'disabled':''}>🪢 Верёвка ${d.rope?'✔':fmt(G.ropeCost(S))+'💰'}</button><button data-dbuy="torch" class="small" ${d.nextT!==null||S.gold<G.torchCost(S)?'disabled':''}>🔦 Факел ${fmt(G.torchCost(S))}💰</button></div><small>Верёвка спасает от одного провала. Факел показывает, легче или труднее следующий шаг (±10%).</small>`:''}
+ </div></div>
+ ${d?`<div class="dpol">${pol}</div><div class="row"><button id="dcash" class="ok big" ${potG<=0&&!potI.length?'disabled':''}>💰 Забрать и выйти (${fmt(potG)}💰${potI.length?' + '+potI.length+' предм.':''})</button></div>`:`<div class="row"><button id="dstart" class="big" ${S.energy<D.cost?'disabled':''}>⛏ Спуститься (⚡${D.cost})</button></div>`}
+ <div class="hint">Найденное на новой глубине сразу кладётся в мешок, даже если потом откинет назад. Теги 🌑 Тень и 🍀 Удача на снаряжении: +1% к шагу за каждую вещь. «До дна так» считается точно (задача о разорении игрока), если всё время ходить выбранным шагом. Погружений: ${S.diveStats.n}, до дна: ${S.diveStats.top}, разорений: ${S.diveStats.ruin}.</div>`;}
 let EQCH=null;
 function eqChoiceHtml(){if(!EQCH)return'';return `<div class="eqchoice"><b>«Надеть лучшее» сломает бонус сета: ${EQCH.lost.map(g=>`<span class="r-set">${g.ru}</span>`).join(', ')}</b><br><small>Сила это только урон и HP. Бонусы сета (золото, удача, риск, особое правило) в силу не входят.</small><div class="row"><button id="eqBest">💪 Макс. сила (${EQCH.pb})</button><button id="eqKeep" class="ok">🟩 Сохранить сет (${EQCH.pk})</button></div></div>`;}
 function gsetHtml(){const any=G.GSETS.some(g=>G.ownedPieces(S,g.k).size);if(!any)return'';const cnt=G.setCount(S);const best=Math.max(0,...S.cleared);const AF=k=>AFRU[k];
@@ -216,8 +222,9 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='winx')S.winHidden=1;
  else if(b.id==='mclose')G.montyClear(S);
  else if(b.id==='dstart')G.diveStart(S);
- else if(b.id==='dstep'){const r=G.diveStep(S);if(r.end==='ruin'){beep(150,0.3);showReport('<p class="bad">🕳️ Вынесло наверх — погружение сорвалось.</p>');}else if(r.end==='top')showReport(`<p class="good">🏆 Дно! +${fmt(r.gold)}💰</p>${itemHtml(r.item,'',1)}`);else beep(r?440:0,0.05);}
- else if(b.id==='dcash'){const r=G.diveCashOut(S);if(r)showReport(`<p class="good">Забрали с глубины ${r.x}: +${fmt(r.gold)}💰</p>`);}
+ else if(d.dpol){DPOL=d.dpol;const r=G.diveStep(S,Math.random,d.dpol);if(!r){}else if(r.end==='ruin'){beep(150,0.3);showReport(`<p class="bad">🕳️ Подняло на поверхность. Добыча из мешка потеряна (${fmt(r.lost.gold)}💰${r.lost.items.length?' + '+r.lost.items.length+' предм.':''}).</p>`);}else if(r.end==='top'){celebrate();showReport(`<p class="good">🏆 Дно! +${fmt(r.gold)}💰</p>${r.items.map(i=>itemHtml(i,'',1)).join('')}`);}else{beep(r.ok?660:r.saved?440:220,0.08);if(r.saved)toast('🪢 Верёвка удержала!');r.got.forEach(i=>toast('🎁 В мешок: '+i.name));}}
+ else if(d.dbuy){G.diveBuy(S,d.dbuy);}
+ else if(b.id==='dcash'){const r=G.diveCashOut(S);if(r)showReport(`<p class="good">Вышли с глубины ${r.x}: +${fmt(r.gold)}💰</p>${r.items.map(i=>itemHtml(i,'',1)).join('')}`);}
  else if(b.id==='secTake'||b.id==='secPass'){const r=b.id==='secTake'?G.secTake(S):G.secPass(S);if(r&&r!=='next')showReport(`<p>Вы взяли товар №${r.all.indexOf(r.it)+1}: он ${r.rank===1?'<b class="good">лучший из всех 8!</b>':`${r.rank}-й по ценности из 8.`}</p>${itemHtml(r.it,'',1)}<p class="hint">Стратегия «1/e»: пропустить первые ~3 и взять первый, кто лучше всех виденных — так лучший достаётся ~40% раз.</p>`);}
  else if(b.id==='knock'){G.knock(S);}
  else if(b.id==='mopen'||b.id==='mleave'){const r=G.resolveMimic(S,b.id==='mopen');mimicReport(r);}

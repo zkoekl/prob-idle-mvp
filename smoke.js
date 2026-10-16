@@ -7,7 +7,7 @@ for(const f of['art.js','help.js','logic.js','app.js'])W.eval(fs.readFileSync(f,
 const D=W.document,c=sel=>{const b=D.querySelector(sel);if(b&&!b.disabled)b.click();return b;},vis=id=>!D.getElementById(id).hidden;
 const firstView=['shopCard','chipCard','locCard','montyCard','guidesCard'].filter(vis);if(firstView.length)throw 'too much at start: '+firstView;
 const log=[];
-for(let i=0;i<900;i++){c('#mok');c('#mok');c('#mok');if(vis('diveCard')){c('#dstart');c('#dstep');c('#dstep');c('#dcash');}D.querySelectorAll('h2.coll')[1]&&i==5&&D.querySelectorAll('h2.coll')[1].click();if(vis('secCard')){c(i%3?'#secPass':'#secTake');}if(vis('mimicCard')){c('#knock');c(i%2?'#mopen':'#mleave');}c('#autosell');c('[data-keep]');c('[data-up="weapon"]');
+for(let i=0;i<900;i++){c('#mok');c('#mok');c('#mok');if(vis('diveCard')){c('#dstart');c('[data-dpol=norm]');c('[data-dbuy=rope]');c('[data-dbuy=torch]');c('[data-dpol=bold]');c('[data-dpol=safe]');c('#dcash');}D.querySelectorAll('h2.coll')[1]&&i==5&&D.querySelectorAll('h2.coll')[1].click();if(vis('secCard')){c(i%3?'#secPass':'#secTake');}if(vis('mimicCard')){c('#knock');c(i%2?'#mopen':'#mleave');}c('#autosell');c('[data-keep]');c('[data-up="weapon"]');
  if(vis('montyCard')){c('[data-door="0"]');c('[data-door="1"]');c('[data-door="2"]');c('#mclose');}
  if(D.getElementById('cont'))(S=>S.run.stage<5?c('#cont'):c('#ret'))(W.__S());
  c('#go');T+=6000;W.__tick();W.__tick();

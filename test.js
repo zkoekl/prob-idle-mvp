@@ -46,7 +46,7 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
   while(q.sec){const cur=G.score(G.secCur(q));if(q.sec.i>=3&&cur>G.secSeenBest(q)){r=G.secTake(q);}else r=G.secPass(q);} if(r&&r.rank===1)best++;}
  console.log('secretary best rate',(best/3000).toFixed(3));assert(best/3000>0.3,'sec');}
 {assert(Math.abs(G.ruinP(0.5,3,10)-0.7)<1e-9,'ruin fair');let ru=0;for(let i=0;i<20000;i++){let x=3;while(x>0&&x<10)x+=Math.random()<0.47?1:-1;if(x===0)ru++;}
- assert(Math.abs(ru/20000-G.ruinP(0.47,3,10))<0.015,'ruin mc');const d=G.newState();d.unl.dive=1;d.energy=20;assert(G.diveStart(d)&&d.energy===12,'dive');let r;while(d.dive)r=G.diveStep(d);assert(r.end,'dive end');}
+ assert(Math.abs(ru/20000-G.ruinP(0.47,3,10))<0.015,'ruin mc');const d=G.newState();d.unl.dive=1;d.energy=20;assert(G.diveStart(d)&&d.energy===20-G.DIVE.cost,'dive');let r;while(d.dive)r=G.diveStep(d);assert(r.end,'dive end');}
 {const s=G.newState();s.unl.synergy=1;const mk=(slot,tag,p)=>({id:s.nextId++,slot,r:2,rarity:'rare',loc:0,power:p,lvl:0,affixes:[],tag,value:1});
  s.inv.push(mk('weapon','fire',10),mk('armor','ice',10),mk('charm','luck',0),mk('weapon','fire',7),mk('armor','fire',6),mk('charm','fire',0));
  G.equipBest(s,'best');assert(s.weapon.tag==='fire'&&s.armor.tag==='fire'&&s.charm.tag==='fire','synergy combo beats singles: '+[s.weapon.tag,s.armor.tag,s.charm.tag]);
@@ -57,9 +57,15 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  // Kelly: even with unlimited tokens and max fraction, growth per bet <= cap
  {const s=base();const cap=G.kellyCap(s);for(let i=0;i<2000;i++){s.kelly.tokens=1;G.kellyBet(s,0.9);}assert(s.gold<=1e5+2000*cap,'kelly bounded');
   const s2=base();for(let i=0;i<2000;i++){s2.kelly.tokens=1;G.kellyBet(s2,G.kellyOpt(s2.kelly.p));}assert(s2.gold<=1e5+2000*G.kellyCap(s2),'kelly opt bounded');console.log('kelly 2000 bets gain',Math.round(s2.gold-1e5),'cap/bet',G.kellyCap(s2));}
- // dive: exact optimal EV per energy (DP over cash-out) vs. normal runs' gold per energy
- {const s=base();const p=G.diveP(s),N=G.DIVE.N;let V=new Array(N+1).fill(0);for(let it=0;it<500;it++){const W=V.slice();for(let x=1;x<N;x++)W[x]=Math.max(x>G.DIVE.A?G.diveCash(s,x):0,p*(x+1===N?G.diveCash(s,N)+G.itemValue(s,2,4):V[x+1])+(1-p)*V[x-1]);V=W;}
-  const dive=V[G.DIVE.A]/G.DIVE.cost;const run=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);console.log('gold/energy dive',dive.toFixed(1),'runs',run.toFixed(1));assert(dive<run,'dive below runs');}
+ // dive: exact optimal EV per energy (DP over state (depth,max) and policy choice) vs. normal runs' gold per energy
+ {const s=base();const p=G.diveP(s),N=G.DIVE.N,A=G.DIVE.A;const pot=m=>G.diveCash(s,m)+G.diveItemsVal(s,m);const ePrice=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);
+  let V={};const key=(x,m)=>x+','+m;const get=(x,m)=>x<=0?0:x>=N?pot(N):(V[key(x,m)]||0);
+  for(let it=0;it<400;it++){const W={};for(let m=A;m<=N;m++)for(let x=1;x<=m&&x<N;x++){let best=m>A?pot(m):0;for(const k in G.DSTEP){const D=G.DSTEP[k];const P=Math.max(0.05,Math.min(0.95,p+D.dp));const nx=Math.min(N,x+D.m);
+    const v=P*get(nx,Math.max(m,nx))+(1-P)*get(x-1,m)-D.e*ePrice;if(v>best)best=v;}W[key(x,m)]=best;}V=W;}
+  const dive=get(A,A)/G.DIVE.cost;console.log('gold/energy dive',dive.toFixed(1),'runs',ePrice.toFixed(1));assert(dive<ePrice,'dive below runs');
+  assert(Math.abs(G.divePolicyP(0.47,3,10,'norm')-(1-G.ruinP(0.47,3,10)))<1e-6,'policy P matches ruin formula');
+  assert(G.divePolicyP(0.47,3,10,'norm',true)>G.divePolicyP(0.47,3,10,'norm'),'rope helps');
+  const d=G.newState();d.unl.dive=1;d.energy=40;d.gold=1e4;G.diveStart(d);assert(G.diveBuy(d,'rope')&&!G.diveBuy(d,'rope'),'one rope');assert(G.diveBuy(d,'torch')&&d.dive.nextT!==null,'torch');let r;while(d.dive)r=G.diveStep(d,Math.random,'bold');assert(r.end,'dive ends');}
  // event triggers (monty/mimic/merchant/deck) are tied to runs: rewards per run bounded
  {const s=base();let g0=s.gold,items=0;for(let i=0;i<500;i++){G.maybeMonty(s,Math.random,true);G.montyPick(s,0);G.montyFinal(s,G.montyClosed(s.monty.pending)[0]);G.montyClear(s);G.drawCard(s,2);}
   assert((s.gold-g0)/500<50*G.LOCS[2].lvl,'events bounded per run');}}
