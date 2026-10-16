@@ -11,7 +11,8 @@ const usedChips=()=>S.alloc.reduce((a,b)=>a+b,0);
 const MQ=[];function popup(k){const t=HELP[k];if(t)MQ.push(t);showModal();}
 function showModal(){if(!$('modal').hidden||!MQ.length)return;const [ti,tx]=MQ.shift();$('mtext').innerHTML=`<h3>${ti}</h3><p>${tx}</p>`;$('modal').hidden=false;}
 $('mok').onclick=()=>{$('modal').hidden=true;showModal();};
-function unlocks(){G.checkUnlocks(S).forEach(popup);}
+function unlocks(){G.checkUnlocks(S).forEach(popup);G.checkAch(S).forEach(x=>toast('🏅 '+x.ru));}
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),3500);beep(990,0.2);}
 // --- pieces
 function afText(it){return it.affixes.map(a=>`+${a.v}${AFRU[a.k].unit} ${AFRU[a.k].ru}`).join(' · ');}
 function itemHtml(it,btns,pop){const pw=it.slot==='charm'?'':` ${it.slot==='weapon'?'⚔️':'🛡️'}${G.itemPower(it)}${it.lvl?` (+${it.lvl})`:''}`;
@@ -24,12 +25,12 @@ function header(){G.tickEnergy(S);const me=G.maxEnergy(S);const U=S.unl;
  const left=S.energy>=me?'полна':'+1 через '+Math.ceil(G.regenSec(S)-(Date.now()-S.energyT)/1000)+'с';
  $('stats').innerHTML=`<span>💰 ${fmt(S.gold)}</span>${U.shop?`<span title="Материалы: для улучшения снаряжения">🔩 ${fmt(S.mats)}</span>`:''}${U.pity?`<span title="Осколки: 40 = легендарка">💎 ${S.shards}/${G.SHARDS_FOR_PITY}</span>`:''}
  <span title="Энергия: тратится на поход, восстанавливается со временем">⚡ ${S.energy}/${me} <span class="bar e"><i style="width:${S.energy/me*100}%"></i></span> <small>${left}</small></span>
- <span title="Уровень героя">Ур. ${S.lvl} <span class="bar"><i style="width:${S.lvl>=G.MAX_LVL?100:S.xp/G.xpNeed(S.lvl)*100}%"></i></span></span>`;}
+ ${G.daily(S)?`<span class="daily" title="Модификатор дня — меняется каждый день">☀️ ${G.daily(S).ru}</span>`:''}<span title="Уровень героя">Ур. ${S.lvl} <span class="bar"><i style="width:${S.lvl>=G.MAX_LVL?100:S.xp/G.xpNeed(S.lvl)*100}%"></i></span></span>`;}
 function renderRun(){const r=S.run;const L=G.LOCS[r?r.loc:S.loc];let h;
  if(!r){const cost=G.runCost(S,S.loc);const c=G.rarChances(S,S.loc);
   h=`<div class="runmain"><b>${L.name}</b><div class="pills"><span>🎁 ${G.rolls(S)} предм.${S.unl.stages?'/этап':''}</span><span>⏱ ${(G.stageMs(S,S.loc)/1000).toFixed(1)} с</span><span>⚡ ${cost}</span></div>
   <button id="go" class="big" ${S.energy<cost?'disabled':''}>${S.energy<cost?`Ждём энергию (${S.energy}/${cost})`:'⚔️ В поход'}</button></div>${chancesBar(c)}`;
-  if(S.unl.stages){const a=S.unl.chips?S.alloc:[0,0,0];h+=`<div class="hint">Этапов: ${L.stages}. Риск гибели по этапам: <span class="bad">${Array.from({length:L.stages},(_,i)=>pct(G.deathChance(S,S.loc,a,i))).join(' → ')}</span></div>`;}}
+  if(S.unl.stages){const a=S.unl.chips?S.alloc:[0,0,0];h+=`<div class="hint">${!S.cleared.includes(S.loc)?'🎯 Пройдите все этапы до конца — откроется новое. ':''}Этапов: ${L.stages}. Риск гибели по этапам: <span class="bad">${Array.from({length:L.stages},(_,i)=>pct(G.deathChance(S,S.loc,a,i))).join(' → ')}</span></div>`;}}
  else if(!r.waiting){h=`<div class="runmain"><b>${L.name}</b> — ${S.unl.stages?`этап ${r.stage+1}/${L.stages}`:'герой в походе…'}</div><div class="prog"><i id="progbar" style="width:0%"></i><b id="walker">🚶</b></div><div class="hint" id="progtxt"></div>`;}
  else{const dc=G.deathChance(S,r.loc,r.alloc,r.stage);
   h=`<b>${L.name}</b>: пройдено ${r.stage}/${L.stages}<div class="stage">${Array.from({length:L.stages},(_,i)=>`<i class="${i<r.stage?'d':''}"></i>`).join('')}</div>
@@ -81,7 +82,7 @@ function render(){header();const U=S.unl;$('win').hidden=!S.won;
  save();}
 function renderMonty(){const p=S.monty.pending;$('montyCard').hidden=!p;if(!p)return;const g=p.guide>=0?S.monty.guides[p.guide].name:'Проводник';
  const doors=[...Array(p.n).keys()].map(i=>{const open=p.opened.includes(i)||p.done;const isP=i===p.prize;
-  const cls='door'+(i===p.pick?' pick':'')+(open?(isP?' prize':' empty'):'');const lab=open?(isP?'💰 приз':'пусто'):(i===p.pick?'ваш':'?');
+  const cls='door'+(i===p.pick?' pick':'')+(open?(isP?' prize':' empty'):'');const lab=open?(isP?'💰 приз':'пусто'):(i===p.pick?'ваш':p.hint===i&&!p.done?'👁 пусто':'?');
   return `<button class="${cls}" data-door="${i}" ${p.done?'disabled':''}>${ART.chest()}<span>${i+1}: ${lab}</span></button>`}).join('');
  let msg;if(p.pick===null)msg=`Найдено сундуков: ${p.n}. В одном — сокровище. Выберите сундук.${p.guide>=0?` С вами ${g}.`:''}`;
  else if(!p.done)msg=p.revealed?`${g} нечаянно открыл сундук с призом! Забирайте.`:`${g} открыл пуст${p.opened.length>1?'ые':'ой'}. Остаться при своём (№${p.pick+1}) или поменять?`;
@@ -97,11 +98,12 @@ function renderMimic(){const m=S.mimic;$('mimicCard').hidden=!m;if(!m)return;
  <div class="hint">Мимик: −10⚡ и −10% золота. Сундук: эпик или легендарка.</div>`;}
 function mimicReport(r){if(!r)return;let h=r.open?(r.isM?`<p class="bad">👹 Мимик! −${r.lost}⚡, −${r.g}💰.</p>`:`<p class="good">Настоящий сундук!</p>${itemHtml(r.item,'',1)}`):`<p>Вы ушли. Это был ${r.isM?'мимик 👹':'обычный сундук 🎁'}.</p>`;
  h+=`<p class="hint">По формуле Байеса вероятность мимика после ваших стуков была ${pct(r.post)}.</p>`;showReport(h);}
-function renderStats(){$('statsCard').hidden=!S.unl.stats;if(!S.unl.stats)return;const st=S.stats;const row=(n,a,e)=>`<tr><td>${n}</td><td>${a}</td><td>${e.toFixed(1)}</td><td class="${a>=e?'good':'bad'}">${e?((a/e-1)*100).toFixed(0)+'%':'—'}</td></tr>`;
- let h='<table><tr><th>Событие</th><th>Факт</th><th>Ожидание</th><th>Удача</th></tr>'+G.RARS.map((r,i)=>row(`<span class="r-${r}">${G.RAR_RU[r]}</span>`,st.rolls[i],st.exp[i])).join('');
- if(S.unl.chips)h+=row('Попадания фишек',st.chipHit,st.chipExp);if(S.unl.stages)h+=row('Гибели (меньше — лучше)',st.deaths,st.deathExp);
- if(st.enhTry)h+=row('Удачные улучшения',st.enhOk,st.enhExp);const ms=S.monty.stats;if(ms.switch[1]+ms.stay[1])h+=`<tr><td>Сундуки: смена / остаться</td><td colspan="3">${ms.switch[0]}/${ms.switch[1]} · ${ms.stay[0]}/${ms.stay[1]}</td></tr>`;
- $('stats2').innerHTML=h+'</table><div class="hint">Ожидание = сумма вероятностей всех бросков. Большие отклонения на малых числах — нормально (закон больших чисел).</div>';}
+function renderStats(){$('statsCard').hidden=!S.unl.stats;if(!S.unl.stats)return;const st=S.stats;const row=(n,a,e,inv)=>{const v=G.luckVerdict(a,e);const good=inv?a<=e:a>=e;return `<tr><td>${n}</td><td>${a}</td><td>${e.toFixed(1)}</td><td>${e>=3?`${Math.round(v.lo)}–${Math.round(v.hi)}`:'—'}</td><td class="${v.v==='в пределах случайности'||v.v==='мало данных'?'':good?'good':'bad'}">${v.v.replace('необычно везёт',inv?'необычно мало':'необычно везёт').replace('необычно не везёт',inv?'необычно много':'необычно не везёт')}</td></tr>`};
+ let h='<table><tr><th>Событие</th><th>Факт</th><th>Ожид.</th><th>Норма 95%</th><th>Вывод</th></tr>'+G.RARS.map((r,i)=>i===0?'':row(`<span class="r-${r}">${G.RAR_RU[r]}</span>`,st.rolls[i],st.exp[i])).join('');
+ if(S.unl.chips)h+=row('Попадания фишек',st.chipHit,st.chipExp);if(S.unl.stages)h+=row('Гибели',st.deaths,st.deathExp,1);
+ if(st.enhTry)h+=row('Удачные улучшения',st.enhOk,st.enhExp);const ms=S.monty.stats;if(ms.switch[1]+ms.stay[1])h+=`<tr><td>Сундуки: смена / остаться</td><td colspan="4">${ms.switch[0]}/${ms.switch[1]} · ${ms.stay[0]}/${ms.stay[1]}</td></tr>`;
+ $('stats2').innerHTML=h+'</table><div class="hint">«Норма» — диапазон, куда в 95% случаев попадает чистая случайность. Вне его — вам и правда (не)везёт.</div>'+achHtml()+'';}
+function achHtml(){const n=Object.keys(S.ach).length;return `<h3 style="font-size:.95rem;margin:12px 0 4px">🏅 Достижения ${n}/${G.ACH.length}</h3><div class="achs">${G.ACH.map(x=>`<span class="${S.ach[x.k]?'got':''}">${S.ach[x.k]?'🏅':'🔒'} ${x.ru}</span>`).join('')}</div>`;}
 function renderSets(){$('setsCard').hidden=!S.unl.sets;if(!S.unl.sets)return;
  $('sets').innerHTML=G.SETS.map((st,i)=>{const a=S.sets[i]||[];const done=a.length===G.SET_N;
   return `<div class="item ${done?'legendary':''}"><div class="txt"><b>${st.ru}</b> <small>(${G.LOCS[i].name})</small><br>${[...Array(G.SET_N).keys()].map(k=>`<span class="trophy ${a.includes(k)?'got':''}">${k+1}</span>`).join('')}
@@ -132,7 +134,7 @@ function renderKelly(){const U=S.unl;$('kellyCard').hidden=!U.kelly;if(!U.kelly)
 function renderRebirth(){const U=S.unl;$('rebirthCard').hidden=!U.rebirth;if(!U.rebirth)return;
  const perks=Object.entries(S.perks).map(([k,v])=>`${G.PERKS.find(p=>p.k===k).ru} ×${v}`).join('<br>')||'пока нет';
  $('rebirth').innerHTML=`<div>Перерождений: <b>${S.rebirths}</b> (добыча +${S.rebirths*25}%). Перки:<br><small>${perks}</small></div>`+
- (S.won?`<p>Выберите постоянный перк и начните заново:</p><div class="perks">${G.PERKS.map(p=>`<button data-perk="${p.k}">${p.ru}</button>`).join('')}</div>`:'<p class="hint">Снова пройдите Бездну Удачи, чтобы переродиться ещё раз.</p>')+
+ (S.won?`<p>Выберите постоянный перк и начните заново:</p><div class="perks">${G.perksAvail(S).map(p=>`<button data-perk="${p.k}" class="${p.t2?'t2':''}">${p.t2?'✦ ':''}${p.ru}</button>`).join('')}</div>${S.rebirths<2?'<p class="hint">После 2-го перерождения откроются перки, меняющие правила.</p>':''}<div></div>`:'<p class="hint">Снова пройдите Бездну Удачи, чтобы переродиться ещё раз.</p>')+
  `<div class="row"><button id="summary" class="small">📜 Итоги удачи</button></div>`;}
 function luckSummary(){const st=S.stats;const tot=st.rolls.reduce((a,b)=>a+b,0);const L=st.rolls[4],E=st.exp[4];
  const best=[S.weapon,S.armor,S.charm,...S.inv].filter(Boolean).sort((a,b)=>b.r-a.r||G.score(b)-G.score(a))[0];
@@ -145,12 +147,12 @@ function offlineReport(ev){if(!ev)return;const ru={merchant:'🧳 Торгове
  for(const e of ev.events)t+=`${ru[e.type]}: ${e.n} раз (в среднем ожидалось ${e.lt.toFixed(2)}, шанс ровно ${e.n} = ${pct(e.p)})<br>`;
  if(ev.merchantGold)t+=`Торговец скупил хлам: +${fmt(ev.merchantGold)}💰<br>`;if(ev.boss)t+=`Побеждён босс! Трофеи: ${ev.boss.map(i=>`<span class="r-${i.rarity}">${i.name}</span>`).join(', ')}<br>`;
  if(ev.bossLost)t+=`Босс отбился ${ev.bossLost} раз(а) — без потерь.<br>`;MQ.push(['🌙 Пока вас не было',t]);showModal();}
-function showReport(h){$('reportCard').hidden=false;$('report').innerHTML=h;}
+function showReport(h){$('reportCard').hidden=false;const better=S.inv.some(i=>!S[i.slot]||G.score(i)>G.score(S[i.slot]));$('report').innerHTML=h+(better?'<div class="row"><button id="autoeq2" class="ok small">Надеть лучшее</button></div>':'');}
 function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;lootSound(r.drops);if(r.died)beep(140,0.4);
  let h=S.unl.stages?`<p><b>Этап ${r.stage}</b></p>`:'';
  if(r.chips.length)h+=`<p class="hint">Фишки: ${r.chips.map(x=>`<span class="r-${G.RARS[G.CHIP_T[x.t].r]}">${G.CHIP_T[x.t].ru} ${x.k}/${x.n}${x.k&&!x.paid?' — ниже порога':''}</span>`).join(', ')}</p>`;
  if(r.revived)h+=`<p class="good">✨ Второй шанс спас героя от гибели!</p>`;
- if(r.died)h+=`<p class="bad">☠️ Герой пал (риск был ${pct(r.dc)}). Потеряно предметов: ${r.lost}.</p>`;
+ if(r.died)h+=`<p class="bad">☠️ Герой пал (риск был ${pct(r.dc)}). Потеряно предметов: ${r.lost}.${r.kept?` Страховка сохранила ${r.kept}.`:''}</p>`;
  h+=r.drops.map((x,i)=>itemHtml(x,S[x.slot]&&G.score(x)>G.score(S[x.slot])||!S[x.slot]?'<span class="badge better">▲</span>':'',i+1)).join('');
  if(r.trophy){const t=r.trophy,st=G.SETS[t.loc];h+=t.dup?`<p>🏺 Трофей «${st.ru}» №${t.k+1} — дубликат (+${t.gold}💰).</p>`:`<p class="good">🏺 Новый трофей «${st.ru}» №${t.k+1}!${t.done?' Коллекция собрана — бонус активен!':''}</p>`;}
  if(r.shards)h+=`<p>💎 +${r.shards} оск.</p>`;if(S.lvl>lvl0)h+=`<p class="good">⭐ Новый уровень: ${S.lvl}!</p>`;
@@ -181,7 +183,7 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='cont'){G.continueRun(S);}
  else if(b.id==='ret'){if(!S.run)return;const r=G.bank(S);showReport(`<p class="good">🏠 Вернулись. Сохранено ${r.items.length} предм. (${fmt(r.gold)}💰)${r.sold?`, автопродажа +${fmt(r.sold)}💰`:''}.</p>`+r.items.slice(-6).map((x,i)=>itemHtml(x,'',i+1)).join(''));afterRun();}
  else if(b.id==='evalb'){runEval();return;}
- else if(b.id==='autoeq')G.equipBest(S);
+ else if(b.id==='autoeq'||b.id==='autoeq2'){G.equipBest(S);if(b.id==='autoeq2')b.remove();}
  else if(b.id==='disAll'){S.inv.filter(i=>S[i.slot]&&G.score(i)<=G.score(S[i.slot])).map(i=>i.id).forEach(id=>G.dismantle(S,id));}
  else if(b.id==='reset'){if(confirm('Сбросить весь прогресс?')){S=G.newState();G.tickEnergy(S);$('reportCard').hidden=true;$('eval').innerHTML='';popup('start');}}
  else return;unlocks();checkWin();render();});

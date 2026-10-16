@@ -34,4 +34,8 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  assert(G.kellyOpt(0.6)>0.199&&G.kellyGrowth(0.6,0.2)>G.kellyGrowth(0.6,0.5),'kelly');
  const o=G.newState();o.unl.offline=1;o.energy=30;o.lastSeen=1;const ev=G.offline(o,3*3600e3);assert(ev&&ev.runs>0&&ev.events.length===2,'offline');
  const w=G.newState();w.won=true;w.gold=999;w.unl.rebirth=1;assert(G.rebirth(w,'luck')&&w.gold===0&&w.rebirths===1&&w.perks.luck===1&&w.unl.rebirth,'rebirth');}
+{const s=G.newState();s.unl.stats=1;const seen=new Set();for(let d=1;d<=60;d++)seen.add(G.daily(s,new Date(2026,9,d)).k);assert(seen.size>=5,'daily variety '+seen.size);
+ assert(G.luckVerdict(30,20).v==='необычно везёт'&&G.luckVerdict(22,20).v==='в пределах случайности','ci');
+ const a=G.newState();a.runs=1;assert(G.checkAch(a).length===1&&G.checkAch(a).length===0,'ach');
+ const w=G.newState();w.won=true;w.rebirths=2;assert(G.perksAvail(w).length===8&&G.rebirth(w,'noThresh'),'t2');w.unl.thresh=1;assert(G.thr(w,1)===1,'nothresh');}
 console.log('TESTS OK');
