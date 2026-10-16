@@ -80,7 +80,7 @@ function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*
 const UNLOCKS=[
  {k:'shop',need:s=>s.runs>=3},{k:'chips',need:s=>s.runs>=5},{k:'stages',need:s=>s.runs>=12},{k:'stats',need:s=>s.runs>=15},
  {k:'locs',need:s=>s.runs>=17&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=20},{k:'sets',need:s=>s.runs>=23},{k:'monty',need:s=>s.runs>=26},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
- {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'deck',need:s=>s.runs>=35},{k:'offline',need:s=>s.runs>=38},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'duel',need:s=>s.runs>=20},{k:'penney',need:s=>s.runs>=27},{k:'cards',need:s=>s.runs>=36},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
+ {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'duel',need:s=>s.runs>=33},{k:'deck',need:s=>s.runs>=35},{k:'penney',need:s=>s.runs>=36},{k:'offline',need:s=>s.runs>=38},{k:'cards',need:s=>s.runs>=39},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=56},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
