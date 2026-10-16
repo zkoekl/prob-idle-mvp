@@ -104,10 +104,10 @@ const BOSSES=[{k:'frost',name:'Хладный Змей-Рыцарь',lore:'Он 
 function bossOf(loc){return BOSSES[loc>=5?2:loc>=4?3:loc>=3?1:0];}
 function duelStart(s,rng=Math.random,o={}){if(s.duel||!s.unl.duel)return false;if(!o.free){if(s.energy<DUEL_COST)return false;s.energy-=DUEL_COST;}
  const loc=o.loc!==undefined?o.loc:Math.max(0,...s.cleared);const boss=!!o.boss;const B=boss?bossOf(loc):null;const names=['Разбойник','Наёмник','Гладиатор','Рыцарь-отступник','Чемпион арены'];
- const hp=100+2.5*A(s,'end'),eh=Math.round((boss?135:110)*(1+0.015*aSum(s)));
+ const hp=100+2.5*A(s,'end'),eh=Math.round((boss?135:120)*(1+0.008*aSum(s)));
  s.duel={loc,boss,route:!!o.route,practice:!!o.practice,name:boss?B.name:names[Math.floor(rng()*names.length)],bk:boss?B.k:null,mode:boss?B.mode:null,eblk:boss?2:1,
   atk:boss?B.atk.slice():habit(rng),blk:boss?B.blk.slice():habit(rng),hp,max:hp,ehp:eh,emax:eh,seen:{atk:Array(NZ).fill(0),blk:Array(NZ).fill(0)},log:[],round:0,charge:0,blocked:false,done:false};return true;}
-function duelOdds(s){const d=s.duel;return{dodge:Math.min(0.3,0.06+0.012*A(s,'agi')),crit:Math.min(0.45,0.07+0.025*A(s,'int')),edodge:0.06,ecrit:0.08,dmg:Math.round(24*(1+0.03*A(s,'str'))),edmg:Math.round((d&&d.boss?27:23)*(1+0.006*aSum(s)))};}
+function duelOdds(s){const d=s.duel;return{dodge:Math.min(0.32,0.06+0.016*A(s,'agi')),crit:Math.min(0.5,0.07+0.04*A(s,'int')),edodge:0.06,ecrit:0.08,dmg:Math.round(24*(1+0.03*A(s,'str'))),edmg:Math.round((d&&d.boss?27:23)*(1+0.004*aSum(s)))};}
 function stanceOk(s,k){const t=DSTANCE[k];return !!t&&(!t.lvl||s.lvl>=t.lvl);}
 function pick(w,rng){let x=rng()*w.reduce((a,b)=>a+b,0);for(let i=0;i<w.length;i++){x-=w[i];if(x<0)return i;}return w.length-1;}
 function pickK(w,k,rng){const out=[];const ww=w.slice();for(let i=0;i<k;i++){const z=pick(ww,rng);out.push(z);ww[z]=0;}return out;}
