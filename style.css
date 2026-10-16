@@ -38,3 +38,11 @@ tr.you{background:#eef4fc;font-weight:600}
 .winc{background:linear-gradient(90deg,#fff2dc,#fff);border:2px solid var(--legendary);font-weight:600}
 .stage{display:flex;gap:4px;margin:6px 0}.stage i{flex:1;height:8px;border-radius:4px;background:#ddd}.stage i.d{background:#3fa34d}
 @media(max-width:520px){.tier{grid-template-columns:56px 1fr}.tier .ctl{grid-column:1/3;justify-content:flex-end}.item{flex-wrap:wrap}}
+
+#modal{position:fixed;inset:0;background:#0006;display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+#modal[hidden]{display:none}.mbox{background:#fff;border-radius:14px;padding:18px;max-width:440px;box-shadow:0 8px 30px #0003;line-height:1.45}
+.mbox h3{margin:0 0 8px}.tip{cursor:pointer;color:#2f7fd8;font-weight:400}
+.doors{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px 0}.door{width:74px;padding:6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.75rem;background:#faf6ee;border:2px solid transparent}
+.door.pick{border-color:#2f7fd8}.door.empty{opacity:.45}.door.prize{border-color:var(--legendary);box-shadow:0 0 12px #f08a0088}.door .ico{width:48px;height:48px}
+.delta{font-size:.75rem;font-weight:600}.simple{text-align:center;padding:14px}.simple .big{font-size:1.1rem;padding:14px 28px}
+summary{cursor:pointer}#howto p{font-size:.85rem;margin:6px 0}
