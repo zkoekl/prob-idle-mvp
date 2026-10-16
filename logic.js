@@ -14,8 +14,8 @@ const LOCS=[
  {name:'Туманные пещеры',mult:1.4,lvl:1.8,threat:50,req:65,stages:3},
  {name:'Гиблые топи',mult:1.9,lvl:3,threat:110,req:125,stages:4},
  {name:'Пепельная крепость',mult:2.5,lvl:5,threat:210,req:250,stages:4},
- {name:'Хрустальный шпиль',mult:3.2,lvl:8,threat:340,req:420,stages:5},
- {name:'Бездна Удачи',mult:4,lvl:12,threat:520,req:660,stages:5},
+ {name:'Хрустальный шпиль',mult:3.2,lvl:8,threat:340,req:450,stages:5},
+ {name:'Бездна Удачи',mult:4,lvl:12,threat:520,req:720,stages:5},
 ];
 const GEARL=[1,1.3,1.7,2.2,2.8,3.5];
 const SHARDS_FOR_PITY=40, MAX_LVL=30;
@@ -79,7 +79,7 @@ function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1
 // --- state
 function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
  chips:2,hpUp:0,dmgUp:0,maxEUp:0,regenUp:0,guideUp:0,lensUp:0,bagUp:0,bootsUp:0,doorsUp:0,
- alloc:[0,0,0],inv:[],weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
+ alloc:[0,0,0],inv:[],cons:{},arm:{},weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
 function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);return n;}}catch(e){}return null;}
@@ -99,23 +99,23 @@ function unlocked(s,l){return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroP
 // --- energy & time
 function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*20;}
 function regenSec(s){return 10*Math.pow(0.9,s.regenUp)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
-function tickEnergy(s,now=Date.now()){if(!s.energyT){s.energyT=now;return;}const per=regenSec(s)*1000;
+function tickEnergy(s,now=Date.now()){if(s.hurtMs>0&&!s.hurtAt)s.hurtAt=now;if(s.hurtAt&&now>=s.hurtAt+s.hurtMs){s.hurtMs=0;s.hurtAt=0;}if(!s.energyT){s.energyT=now;return;}const per=regenSec(s)*1000;
  if(s.energy>=maxEnergy(s)){s.energyT=now;return;}const n=Math.floor((now-s.energyT)/per);if(n>0){s.energy=Math.min(maxEnergy(s),s.energy+n);s.energyT+=n*per;}}
 function runCost(s,loc){return 3+loc*4;}
 function stageMs(s,loc){return Math.round((4000+loc*1500)*Math.pow(0.92,s.bootsUp)*(1-Math.min(40,aff(s,'speed'))/100));}
 const STANCE=[{ru:'Осторожно',ic:'🛡',dn:1,rm:0.35,dm:0.7},{ru:'Обычно',ic:'⚖️',dn:0,rm:1,dm:1},{ru:'Рискованно',ic:'🔥',dn:-1,rm:3.6,dm:1.3}];
 function stance(s){return STANCE[s.stance===undefined?1:s.stance]||STANCE[1];}
-function rolls(s){return Math.max(1,2+s.bagUp+stance(s).dn);}
+function rolls(s){return Math.max(1,(s.unl&&s.unl.stages?1:2)+s.bagUp+stance(s).dn);}
 function stanceInfo(s,loc,k){const o=s.stance;s.stance=k;const c=rarChances(s,loc),n=rolls(s);s.stance=o;const p=c[2]+c[3]+c[4];return{n,p,any:1-Math.pow(1-p,n),leg:1-Math.pow(1-c[4],n)};}
 // --- drop chances
 function luckMul(s){const n=syn(s,'luck');return 1+(aff(s,'luck')+s.lensUp*5+(s.perks.luck||0)*10+(n>=3?40:n>=2?15:0))/100;}
-function rarChances(s,loc,stage=0){const m=LOCS[loc].mult*(1+0.1*stage)*luckMul(s);const w=RAR_W.map((x,r)=>x*Math.pow(m,r*0.6));if(dmod(s,'leg'))w[4]*=1.5;const sm=stance(s).rm;for(let r=2;r<5;r++)w[r]*=sm;const t=w.reduce((a,b)=>a+b,0);return w.map(x=>x/t);}
-function itemValue(s,loc,r,stage=0){return Math.round(RAR_VAL[r]*LOCS[loc].lvl*(1+0.15*stage)*(1+aff(s,'goldPct')/100)*(1+0.25*s.rebirths)*(dmod(s,'gold')?1.25:1));}
+function rarChances(s,loc,stage=0){const m=LOCS[loc].mult*(1+0.12*stage+0.03*stage*stage)*luckMul(s);const w=RAR_W.map((x,r)=>x*Math.pow(m,r*0.6));if(dmod(s,'leg'))w[4]*=1.5;if(s._elix||(s.run&&s.run.buff&&s.run.buff.elixir))for(let r=2;r<5;r++)w[r]*=1.6;const sm=stance(s).rm;for(let r=2;r<5;r++)w[r]*=sm;const t=w.reduce((a,b)=>a+b,0);return w.map(x=>x/t);}
+function itemValue(s,loc,r,stage=0){return Math.round(RAR_VAL[r]*LOCS[loc].lvl*(1+0.2*stage+0.06*stage*stage)*(1+aff(s,'goldPct')/100)*(1+0.25*s.rebirths)*(dmod(s,'gold')?1.25:1));}
 function chipChance(s,loc,t,stage=0){return Math.min(0.9,(syn(s,'crit')>=3?1.3:1)*(dmod(s,'chips')?1.25:1)*CHIP_T[t].p*Math.pow(LOCS[loc].mult,0.5+t*0.25)*(1+0.1*stage)*luckMul(s));}
 function riskWeight(alloc){return alloc[0]*0.05+alloc[1]*0.15+alloc[2]*0.3;}
 function deathChance(s,loc,alloc,stage){if(!s.unl.stages)return 0;if(stage===0&&rule(s,'safe1'))return 0;const L=LOCS[loc];const def=heroHp(s)+3*heroDmg(s);
- const d=0.22*locThreat(s,loc)*(1+0.25*stage)*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
- return Math.max(0.005,Math.min(0.9,stance(s).dm*d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)*(dmod(s,'safe')?0.75:1)*(syn(s,'shadow')>=3?0.7:syn(s,'shadow')>=2?0.85:1)));}
+ const sf=loc===0?(1+0.25*stage)*0.7:(1+0.3*stage+0.12*stage*stage);const d=0.22*locThreat(s,loc)*sf*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
+ return Math.max(0.005,Math.min(loc===0?0.04:0.9,stance(s).dm*d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)*(dmod(s,'safe')?0.75:1)*(syn(s,'shadow')>=3?0.7:syn(s,'shadow')>=2?0.85:1)));}
 function stageEV(s,loc,alloc,stage){const c=rarChances(s,loc,stage);let v=rolls(s)*c.reduce((a,p,r)=>a+p*itemValue(s,loc,r,stage),0);
  alloc.forEach((n,t)=>{if(n)v+=expPaid(n,chipChance(s,loc,t,stage),thr(s,t))*itemValue(s,loc,CHIP_T[t].r,stage);});return v;}
 // --- items
@@ -126,7 +126,7 @@ function makeItem(s,loc,r,rng=Math.random,stage=0,forceSlot){const q=rng();let s
  const names={weapon:['Кинжал','Меч','Топор','Копьё','Посох'],armor:['Куртка','Кольчуга','Панцирь','Мантия','Щит'],charm:['Амулет','Кольцо','Талисман','Брошь','Оберег'],helm:['Шапка','Шлем','Капюшон','Венец','Маска'],gloves:['Перчатки','Наручи','Рукавицы','Краги','Митенки'],boots:['Сапоги','Ботинки','Поножи','Сандалии','Башмаки']};
  const minor=slot==='helm'||slot==='gloves'||slot==='boots';let n=Math.max(0,AFFIX_N[r]+(slot==='charm'?1:0)-(minor?1:0));const pool=AFFIXES.slice();const affixes=[];
  while(n-->0&&pool.length){const a=pool.splice(Math.floor(rng()*pool.length),1)[0];affixes.push({k:a.k,v:Math.round(rint(rng,a.min,a.max)*(1+loc*0.25)*(r===4?1.5:1)*(minor?0.5:1))});}
- return{id:s.nextId++,slot,r,rarity:rar,loc,power,lvl:0,affixes,tag:r>=1?TAG_K[Math.floor(rng()*TAG_K.length)]:null,value:itemValue(s,loc,r,stage),name:names[slot][Math.floor(rng()*5)]};}
+ return{id:s.nextId++,slot,r,rarity:rar,loc,power,lvl:0,affixes,tag:r>=1?(s.run&&s.run.buff&&s.run.buff.bait&&rng()<0.5?s.run.buff.bait:TAG_K[Math.floor(rng()*TAG_K.length)]):null,value:itemValue(s,loc,r,stage),name:names[slot][Math.floor(rng()*5)]};}
 function score(it){return itemPower(it)+it.affixes.reduce((a,x)=>a+x.v*0.6,0)+(it.slot==='charm'?it.r*3:0);}
 function equip(s,id){const it0=s.inv.find(x=>x.id===id);if(it0&&!slotsOpen(s).includes(it0.slot))return;const i=s.inv.findIndex(x=>x.id===id);if(i<0)return;const it=s.inv.splice(i,1)[0];it.kept=false;if(s[it.slot])s.inv.push(s[it.slot]);s[it.slot]=it;}
 function toggleKeep(s,id){const it=s.inv.find(x=>x.id===id);if(!it)return false;if(!it.kept&&keptCount(s)>=stashCap(s))return'full';it.kept=!it.kept;return true;}
@@ -156,15 +156,36 @@ function upgradeItem(s,slot,useScroll=false,rng=Math.random){const it=s[slot];if
  if(rng()<p){if(p<1)s.stats.enhOk++;it.lvl++;return'ok';}
  if(enhDown(it.lvl)){if(useScroll&&s.scrolls>0){s.scrolls--;return'saved';}it.lvl--;return'down';}return'fail';}
 // --- expedition: timed stages
-function startRun(s,now=Date.now()){if(s.run)return'run';const f=runCost(s,s.loc);if(s.energy<f)return'energy';
+function startRun(s,now=Date.now()){if(s.run)return'run';if(s.hurtMs>0&&(!s.hurtAt||now<s.hurtAt+s.hurtMs))return'hurt';const f=runCost(s,s.loc);if(s.energy<f)return'energy';
  const a=s.unl.chips?s.alloc.slice():[0,0,0];if(a.reduce((x,y)=>x+y,0)>chipTotal(s))return'chips';
- s.energy-=f;s.run={loc:s.loc,alloc:a,stage:0,loot:[],endAt:now+stageMs(s,s.loc),waiting:false};return null;}
+ s.energy-=f;s.run={buff:armBuff(s),loc:s.loc,alloc:a,stage:0,loot:[],cash:0,mats:0,endAt:now+stageMs(s,s.loc),waiting:false};return null;}
 function continueRun(s,now=Date.now()){const r=s.run;if(!r||!r.waiting)return false;r.waiting=false;r.endAt=now+stageMs(s,r.loc);return true;}
+// death costs (none in the first location): healing time (or gold), some energy, 35% chance an enhanced item drops a level (scroll protects)
+function healMs(s,loc){return loc?40000*(1+loc):0;}function healCost(s,loc){return loc?Math.round(25*LOCS[loc].lvl*(1+loc)*(1+0.25*s.rebirths)):0;}
+function deathEnergy(loc){return loc?2+loc*2:0;}
+function deathPenalty(s,loc,rng){const o={};if(!loc)return o;o.heal=healMs(s,loc);s.hurtMs=o.heal;s.hurtAt=0;s.hurtLoc=loc;o.elost=Math.min(s.energy,deathEnergy(loc));s.energy-=o.elost;
+ if(rng()<0.35){const eq=eqOf(s).filter(i=>i&&i.lvl>0);if(eq.length){const it=eq[Math.floor(rng()*eq.length)];if(s.scrolls>0){s.scrolls--;o.scroll=it.name;}else{it.lvl--;o.down=it.name;}}}return o;}
+function healNow(s){if(!(s.hurtMs>0))return false;const c=healCost(s,s.hurtLoc||1);if(s.gold<c)return false;s.gold-=c;s.hurtMs=0;s.hurtAt=0;return true;}
+function hurtLeft(s,now=Date.now()){if(!(s.hurtMs>0))return 0;return Math.max(0,(s.hurtAt||now)+s.hurtMs-now);}
+// expected value of continuing one more stage vs returning now (death loses carried loot + penalty)
+function penaltyGold(s,loc){if(!loc)return 0;const ev=stageEV(s,loc,[0,0,0],0);return Math.round(healCost(s,loc)*0.5+deathEnergy(loc)*ev/Math.max(1,runCost(s,loc))+0.35*(eqOf(s).some(i=>i&&i.lvl>0)&&!s.scrolls?ev:0));}
+function continueEV(s){const r=s.run;if(!r)return null;const dc=deathChance(s,r.loc,r.alloc,r.stage);const carried=r.loot.reduce((a,b)=>a+b.value,0)+(r.cash||0);const gain=stageEV(s,r.loc,r.alloc,r.stage);const pen=penaltyGold(s,r.loc);
+ return{dc,carried,gain,pen,ev:(1-dc)*gain-dc*(carried+pen)};}
+// consumables: drop from melted junk (5%), buy for gold, craft from materials
+const CONS={potion:{ru:'Зелье лечения',ic:'🧪',d:'одна гибель в этом походе не случится',g:120,m:40},elixir:{ru:'Эликсир удачи',ic:'✨',d:'шанс редкого+ ×1.6 на весь поход',g:150,m:50},
+ bait:{ru:'Приманка',ic:'🪱',d:'половина вещей с тегами получит выбранный тег',g:90,m:30},peek:{ru:'Свиток подглядывания',ic:'🔍',d:'в сундуках Монти: показывает содержимое одного сундука',g:100,m:35},
+ rope:{ru:'Верёвка',ic:'🪢',d:'погружение: спасает от одного провала',g:0,m:30},torch:{ru:'Факел',ic:'🔦',d:'погружение: показывает сложность следующего шага',g:0,m:15}};
+const CONS_K=Object.keys(CONS),CONS_DROP=0.05;
+function consPrice(s,k){const m=LOCS[Math.max(0,...s.cleared)].lvl;return{g:Math.round(CONS[k].g*m),m:Math.round(CONS[k].m*m)};}
+function buyCons(s,k,how){const p=consPrice(s,k);if(how==='g'){if(!CONS[k].g||s.gold<p.g)return false;s.gold-=p.g;}else{if(s.mats<p.m)return false;s.mats-=p.m;}s.cons[k]=(s.cons[k]||0)+1;return true;}
+function armBuff(s){const b={};const a=s.arm||{};for(const k of['potion','elixir','bait'])if(a[k]&&(s.cons[k]||0)>0){s.cons[k]--;b[k]=k==='bait'?(a.baitTag||'fire'):1;}s.arm={baitTag:a.baitTag};return b;}
+function elixPreview(s,loc){s._elix=1;const c=rarChances(s,loc);s._elix=0;return c;}
 function rollStage(s,rng=Math.random){const r=s.run;if(!r||r.waiting)return null;const L=LOCS[r.loc];
  const dc=deathChance(s,r.loc,r.alloc,r.stage);const res={stage:r.stage+1,drops:[],shards:0,died:false,dc,chips:[]};
  const c=rarChances(s,r.loc,r.stage);let gotLeg=false;
  for(let r2=0;r2<5;r2++)s.stats.exp[r2]+=c[r2]*rolls(s);
- for(let i=0;i<rolls(s);i++){const rr=pickRar(c,rng);s.stats.rolls[rr]++;res.drops.push(maybeSet(s,makeItem(s,r.loc,rr,rng,r.stage),rng));if(rr===4)gotLeg=true;}
+ for(let i=0;i<rolls(s);i++){const rr=pickRar(c,rng);s.stats.rolls[rr]++;if(rr===0||(rr===1&&rng()<0.6)){const v=itemValue(s,r.loc,rr,r.stage);r.cash=(r.cash||0)+v;r.mats=(r.mats||0)+(rr+1)*(1+r.loc);res.cash=(res.cash||0)+v;if(rng()<CONS_DROP){const k=CONS_K[Math.floor(rng()*CONS_K.length)];s.cons[k]=(s.cons[k]||0)+1;(res.cons=res.cons||[]).push(k);}continue;}
+ res.drops.push(maybeSet(s,makeItem(s,r.loc,rr,rng,r.stage),rng));if(rr===4)gotLeg=true;}
  r.alloc.forEach((n,t)=>{if(!n)return;const p=chipChance(s,r.loc,t,r.stage);let k=0;for(let i=0;i<n;i++){if(rng()<p)k++;else if(t===2)res.shards++;}s.stats.chipHit+=k;s.stats.chipExp+=n*p;
   const paid=k>=thr(s,t);res.chips.push({t,k,n,paid});if(paid)for(let i=0;i<k;i++){res.drops.push(makeItem(s,r.loc,CHIP_T[t].r,rng,r.stage));if(t===2)gotLeg=true;}});
  if(!gotLeg)res.shards++;
@@ -172,8 +193,9 @@ function rollStage(s,rng=Math.random){const r=s.run;if(!r||r.waiting)return null
  if(s.perks.shards2)res.shards*=2;
  if(s.unl.pity)s.shards+=res.shards;else res.shards=0;
  s.stats.deathExp+=dc;
- if(rng()<dc&&s.perks.revive&&rng()<0.3*s.perks.revive){res.revived=true;}
- else if(rng()<dc){res.died=true;s.stats.deaths++;res.lost=r.loot.length+res.drops.length;
+ const dead=rng()<dc;if(dead&&s.perks.revive&&rng()<0.3*s.perks.revive){res.revived=true;}
+ else if(dead&&r.buff&&r.buff.potion){r.buff.potion=0;res.potion=true;}
+ else if(dead){res.died=true;s.stats.deaths++;res.lost=r.loot.length+res.drops.length;res.lostGold=r.loot.reduce((a,b)=>a+b.value,0)+(r.cash||0);Object.assign(res,deathPenalty(s,r.loc,rng));
   if(!s.perks.keepHalf&&syn(s,'shadow')>=3){const all=r.loot.concat(res.drops);const keep=all.filter((_,i)=>i%4===0);keep.forEach(i=>i.fresh=true);s.inv.push(...keep);res.kept=keep.length;res.lost-=keep.length;}
   if(s.perks.keepHalf){const all=r.loot.concat(res.drops);const keep=all.filter((_,i)=>i%2===0);keep.forEach(i=>i.fresh=true);s.inv.push(...keep);res.kept=keep.length;res.lost-=keep.length;}s.deaths++;s.runs++;s.run=null;return res;}
  r.loot.push(...res.drops);r.stage++;addXp(s,Math.round((4+res.drops.reduce((a,b)=>a+b.r*2,0))*L.lvl*(dmod(s,'xp')?1.5:1)));
@@ -181,7 +203,7 @@ function rollStage(s,rng=Math.random){const r=s.run;if(!r||r.waiting)return null
   if(s.unl.sets&&r.stage>=L.stages)res.trophy=rollTrophy(s,r.loc,rng);
   res.bank=bank(s);if(res.finished&&s.unl.kelly)s.kelly.tokens=Math.min(10,s.kelly.tokens+1);return res;}
  r.waiting=true;return res;}
-function bank(s){const r=s.run;if(!r)return null;s.inv.forEach(i=>i.fresh=false);r.loot.forEach(i=>i.fresh=true);s.inv.push(...r.loot);const g=r.loot.reduce((a,b)=>a+b.value,0);s.runs++;s.run=null;const sold=autoSellItems(s,r.loot);return{items:r.loot,gold:g,sold};}
+function bank(s){const r=s.run;if(!r)return null;s.inv.forEach(i=>i.fresh=false);r.loot.forEach(i=>i.fresh=true);s.inv.push(...r.loot);s.gold+=r.cash||0;s.mats+=r.mats||0;const g=r.loot.reduce((a,b)=>a+b.value,0)+(r.cash||0);s.runs++;s.run=null;const sold=autoSellItems(s,r.loot);return{items:r.loot,gold:g,sold};}
 function craftPity(s,rng=Math.random){const pc=pityCost(s);if(s.shards<pc)return null;s.shards-=pc;s.pityUsed=(s.pityUsed||0)+1;const it=makeItem(s,Math.max(0,...s.cleared),4,rng);s.inv.push(it);return it;}
 // --- coupon collector trophies: 5 per location, uniform; full set = permanent bonus
 const SETS=[{ru:'Лесной гербарий',bonus:'goldPct',v:10},{ru:'Пещерные кристаллы',bonus:'hpPct',v:10},{ru:'Болотные тотемы',bonus:'riskRed',v:8},
@@ -240,7 +262,7 @@ function secTake(s){const m=s.sec;if(!m)return null;const it=m.items[m.i];s.inv.
  s.secStats.n++;if(rank===1)s.secStats.best++;s.sec=null;return{it,rank,all:m.items};}
 function secPass(s){const m=s.sec;if(!m)return null;if(m.i>=SEC_N-1)return secTake(s);m.i++;return 'next';}
 // --- deep dive: random walk, gambler's ruin. Start at A, step +1 w.p. p else -1; reach N = treasure, 0 = ruin; cash out anytime
-const DIVE={A:3,N:10,cost:10,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
+const DIVE={A:3,N:10,cost:12,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
 // step policies: success prob shift, depth gained on success, extra energy
 const DSTEP={safe:{ru:'Осторожно',ic:'🟢',dp:0.1,m:1,e:1},norm:{ru:'Обычно',ic:'⬇️',dp:0,m:1,e:0},bold:{ru:'Смело',ic:'🔥',dp:-0.08,m:2,e:0}};
 function diveP(s){return Math.min(0.6,0.47+s.lensUp*0.005+(s.perks.luck||0)*0.01+0.01*((syn(s,'shadow')||0)+(syn(s,'luck')||0)));}
@@ -250,13 +272,13 @@ function divePolicyP(p,x,N,pol,rope){const P=Math.max(0.05,Math.min(0.95,p+DSTEP
  for(let it=0;it<3000;it++){const g=f.slice();for(let y=1;y<N;y++)g[y]=P*f[Math.min(N,y+m)]+(1-P)*f[y-1];f=g;}
  if(!rope)return f[Math.min(N,x)];let h=f.slice();for(let it=0;it<3000;it++){const g=h.slice();for(let y=1;y<N;y++)g[y]=P*h[Math.min(N,y+m)]+(1-P)*f[y];h=g;}return h[Math.min(N,x)];}
 function diveMul(s){return LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths);}
-function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(4*k*k*diveMul(s));}
+function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(2*k*k*diveMul(s));}
 function diveItemsVal(s,m){const loc=Math.max(0,...s.cleared);let v=0;for(const d in DIVE.ITEMS)if(m>=+d)v+=itemValue(s,loc,DIVE.ITEMS[d]);return v;}
 function ropeCost(s){return Math.round(40*diveMul(s));}function torchCost(s){return Math.round(15*diveMul(s));}
 function diveStart(s){if(!s.unl.dive||s.dive||s.energy<DIVE.cost)return false;s.energy-=DIVE.cost;s.dive={x:DIVE.A,max:DIVE.A,path:[DIVE.A],p:diveP(s),pot:{gold:0,items:[]},rope:false,torch:0,t:null,nextT:null};return true;}
 function diveTerrain(rng){const r=rng();return r<1/3?-0.1:r<2/3?0:0.1;}
-function diveBuy(s,what,rng=Math.random){const d=s.dive;if(!d)return false;if(what==='rope'){if(d.rope||s.gold<ropeCost(s))return false;s.gold-=ropeCost(s);d.rope=true;return true;}
- if(what==='torch'){if(d.nextT!==null||s.gold<torchCost(s))return false;s.gold-=torchCost(s);d.nextT=diveTerrain(rng);return true;}return false;}
+function diveBuy(s,what,rng=Math.random){const d=s.dive;if(!d)return false;if(what==='rope'){if(d.rope)return false;if(s.cons.rope>0)s.cons.rope--;else{if(s.gold<ropeCost(s))return false;s.gold-=ropeCost(s);}d.rope=true;return true;}
+ if(what==='torch'){if(d.nextT!==null)return false;if(s.cons.torch>0)s.cons.torch--;else{if(s.gold<torchCost(s))return false;s.gold-=torchCost(s);}d.nextT=diveTerrain(rng);return true;}return false;}
 function diveStepP(s,pol){const d=s.dive;return Math.max(0.05,Math.min(0.95,d.p+DSTEP[pol].dp+(d.nextT||0)));}
 function diveStep(s,rng=Math.random,pol='norm'){const d=s.dive;if(!d)return null;const P=DSTEP[pol];if(P.e&&s.energy<P.e)return null;s.energy-=P.e;
  const t=d.nextT!==null?d.nextT:diveTerrain(rng);d.nextT=null;const ok=rng()<Math.max(0.05,Math.min(0.95,d.p+P.dp+t));const got=[];let saved=false;
@@ -332,7 +354,7 @@ function guessGuide(s,gi,type){const g=s.monty.guides&&s.monty.guides[gi];if(!g|
 // --- shop
 const SHOP={hp:s=>Math.round(25*Math.pow(1.38,s.hpUp)),dmg:s=>Math.round(30*Math.pow(1.38,s.dmgUp)),
  maxE:s=>Math.round(50*Math.pow(1.6,s.maxEUp)),regen:s=>s.regenUp>=15?Infinity:Math.round(70*Math.pow(1.7,s.regenUp)),
- bag:s=>s.bagUp>=4?Infinity:Math.round(150*Math.pow(3,s.bagUp)),boots:s=>s.bootsUp>=10?Infinity:Math.round(60*Math.pow(1.8,s.bootsUp)),
+ bag:s=>s.bagUp>=2?Infinity:Math.round(150*Math.pow(3,s.bagUp)),boots:s=>s.bootsUp>=10?Infinity:Math.round(60*Math.pow(1.8,s.bootsUp)),
  chips:s=>s.chips>=6?Infinity:Math.round(120*Math.pow(2.6,s.chips-2)),
  guide:s=>s.guideUp>=12?Infinity:Math.round(120*Math.pow(1.75,s.guideUp)),lens:s=>s.lensUp>=12?Infinity:Math.round(150*Math.pow(1.75,s.lensUp)),
  stash:s=>s.stashUp>=8?Infinity:Math.round(200*Math.pow(1.8,s.stashUp)),doors:s=>s.doorsUp>=4?Infinity:Math.round(300*Math.pow(3,s.doorsUp)),scroll:s=>Math.round(150+60*s.cleared.length),bayes:s=>s.bayesUp?Infinity:400};
@@ -352,7 +374,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};

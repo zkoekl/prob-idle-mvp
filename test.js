@@ -10,15 +10,15 @@ function bot(seed,pre){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Mat
   if(s.unl.locs)for(let l=G.LOCS.length-1;l>=0;l--)if(G.unlocked(s,l)){s.loc=l;break;}
   if(s.unl.chips)s.alloc=G.strategies(s.chips)[2].a;
   while(s.energy<G.runCost(s,s.loc))adv(G.regenSec(s)*1000);
-  G.startRun(s,now);adv(3000);
+  if(G.startRun(s,now)==='hurt'){if(!G.healNow(s))adv(G.hurtLeft(s,now)+10);continue;}adv(3000);
   while(s.run){adv(G.stageMs(s,s.run.loc));const r=G.rollStage(s,rng);if(!s.run)break;
-   if(G.deathChance(s,s.run.loc,s.run.alloc,s.run.stage)>0.12){G.bank(s);break;}adv(1000);G.continueRun(s,now);}
+   const ce=G.continueEV(s);(s.dcmax=s.dcmax||{})[s.run.loc]=Math.max(s.dcmax[s.run.loc]||0,ce.dc);if(ce.ev<0){G.bank(s);break;}adv(1000);G.continueRun(s,now);}
   const nu=G.checkUnlocks(s);if(process.env.TR&&nu.length)console.log('  unlock',nu.join(),'at',(now/60000).toFixed(1)+'m','run',s.runs);if(nu.length&&now>300000&&!t5)t5=s.runs;
   if(G.maybeMonty(s,rng)){G.montyPick(s,0,rng);const c=G.montyClosed(s.monty.pending);G.montyFinal(s,c.length?c[0]:0,rng);G.montyClear(s);adv(5000);}
   G.equipBest(s,'best');s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}G.drawCard(s,s.loc,rng);if(G.maybeSecretary(s,rng)){while(s.sec)G.secPass(s);}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
   let b=true;while(b){b=false;const o=Object.keys(G.SHOP).filter(k=>(k!=='scroll'||s.scrolls<2)&&G.shopAvail(s,k)&&G.SHOP[k](s)<Infinity).sort((x,y)=>G.SHOP[x](s)-G.SHOP[y](s));if(o.length&&s.gold>=G.SHOP[o[0]](s))b=G.buy(s,o[0]);}
   if(process.env.TR&&n%20==0)console.log(Math.round(now/60000)+'m',s.runs,s.loc,G.heroPower(s),s.lvl,Object.keys(s.unl).join());}
- return{s,min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
+ return{dc:Object.values(s.dcmax||{}).map(x=>(x*100).toFixed(1)).join('/'),s,min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
 for(const sd of[1,2,3]){const r=bot(sd);const {s,...o}=r;console.log(JSON.stringify(o));
  G.rebirth(s,'luck');s.energyT=0;const r2=bot(sd+10,s);const {s:s2,...o2}=r2;console.log('  after rebirth:',JSON.stringify(o2));}
 {const s=G.newState();s.unl.stages=1;const mc=G.monteCarlo(s,0,[1,1,0],1,2000);assert(mc.mean>0&&mc.bins.length===12,'mc');}
@@ -86,4 +86,9 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  const s5=G.newState();for(const sl of G.SLOTS)s5[sl]=G.makeSetItem(s5,4,4,G.GSETS[0],sl);assert(G.pityCost(s5)===25,'pity rule');
  let n=0,set=0;const s6=G.newState();s6.unl={locs:1};s6.cleared=[0,1,2,3];for(let i=0;i<20000;i++){const it=G.maybeSet(s6,G.makeItem(s6,3,3));if(it.set)s6.inv.push(it);if(it.set){set++;assert(G.GSETS.find(x=>x.k===it.set).loc<=3,'tier');}n++;}
  console.log('set share of rare+ at loc3',(set/n).toFixed(3));}
+{const s=G.newState();s.unl={stages:1,locs:1};s.cleared=[0,1];s.gold=1e4;s.mats=1e4;assert(G.buyCons(s,'potion','g')&&G.buyCons(s,'elixir','m')&&!G.buyCons(s,'rope','g'),'buy cons');
+ const b=G.rarChances(s,1),e=G.elixPreview(s,1);assert(e[4]>b[4]*1.3,'elixir');s.arm={potion:1,elixir:1};s.loc=1;s.energy=99;G.startRun(s);assert(s.run.buff.potion&&s.run.buff.elixir&&!s.cons.potion,'armed');
+ s.run.waiting=false;const r=G.rollStage(s,()=>0);assert(r.potion&&!r.died,'potion saves');
+ const s2=G.newState();s2.unl={stages:1,locs:1};s2.cleared=[0,1];s2.loc=1;s2.energy=99;s2.lvl=1;s2.weapon={id:1,slot:'weapon',r:1,lvl:3,power:3,affixes:[]};G.startRun(s2);const r2=G.rollStage(s2,()=>0);
+ assert(r2.died&&r2.heal>0&&G.startRun(s2,Date.now())==='hurt'&&s2.weapon.lvl===2,'death penalty '+JSON.stringify(r2));}
 console.log('TESTS OK');
