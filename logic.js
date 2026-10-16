@@ -42,7 +42,7 @@ function slotsOpen(s){const o=['weapon','armor','charm'];const c=s.cleared||[];i
 function eqOf(s){return SLOTS.map(k=>s[k]||null);}
 function slotP(s,sl){const o=slotsOpen(s);if(!o.includes(sl))return 0;return SLOT_W[sl]/o.reduce((a,k)=>a+SLOT_W[k],0);}
 const GSETS=[
- {k:'forest',ru:'Наследие Лесника',loc:1,tag:'luck',col:'#3fbf5f',b2:{k:'goldPct',v:15},b4:{k:'luck',v:15},rule:'pity',ruleRu:'легендарка из осколков стоит 25, а не 40',
+ {k:'forest',ru:'Наследие Лесника',loc:1,tag:'luck',col:'#3fbf5f',b2:{k:'goldPct',v:15},b4:{k:'luck',v:15},rule:'pity',ruleRu:'легендарная вещь из осколков стоит 25, а не 40',
   names:['Лук Лесника','Плащ Лесника','Желудь-оберег','Капюшон Лесника','Рукавицы Лесника','Мокасины Лесника']},
  {k:'guard',ru:'Доспех Стража',loc:2,tag:'ice',col:'#3fbf5f',b2:{k:'hpPct',v:20},b4:{k:'riskRed',v:10},rule:'safe1',ruleRu:'на 1-м этапе гибель невозможна',
   names:['Секира Стража','Кираса Стража','Печать Стража','Шлем Стража','Латные перчатки Стража','Поножи Стража']},
@@ -302,23 +302,23 @@ function resolveMimic(s,open,rng=Math.random){const m=s.mimic;if(!m)return null;
  const it=makeItem(s,m.loc,Math.min(4,3+(rng()<0.25?1:0)),rng);s.inv.push(it);return{open,isM:false,post,item:it};}
 function autoSellItems(s,items){if(!s.autoSell)return 0;let g=0;for(const it of items){if(it.r<s.autoSell&&!it.set&&!(s.unl.synergy&&it.tag&&it.r>=2)&&(!s[it.slot]||score(it)<=score(s[it.slot]))){g+=dismantle(s,it.id);}}return g;}
 // --- daily luck modifier (same for everyone on a given local date)
-const DAILY=[{k:'leg',ru:'День удачи: легендарки ×1.5'},{k:'energy',ru:'Бодрый день: энергия на 25% быстрее'},{k:'safe',ru:'Тихий день: риск гибели −25%'},
+const DAILY=[{k:'leg',ru:'День удачи: легендарные вещи ×1.5'},{k:'energy',ru:'Бодрый день: энергия на 25% быстрее'},{k:'safe',ru:'Тихий день: риск гибели −25%'},
  {k:'gold',ru:'Ярмарка: золото +25%'},{k:'chips',ru:'Азартный день: шанс фишек +25%'},{k:'mimic',ru:'День мимиков: подозрительные сундуки чаще'},{k:'xp',ru:'День учёбы: опыт ×1.5'}];
 function dayKey(d=new Date()){return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
 function daily(s,d){if(!s.unl.stats)return null;let h=dayKey(d);h=(h^61)^(h>>>16);h=h+(h<<3);h^=h>>>4;h=Math.imul(h,0x27d4eb2d);h^=h>>>15;return DAILY[Math.abs(h)%DAILY.length];}
 function dmod(s,k){if(s.noDaily)return false;const d=daily(s);return!!d&&d.k===k;}
 function luckVerdict(a,e){if(e<3)return{lo:0,hi:0,v:'мало данных'};const sd=Math.sqrt(e);const lo=Math.max(0,e-1.96*sd),hi=e+1.96*sd;
  return{lo,hi,v:a>hi?'необычно везёт':a<lo?'необычно не везёт':'в пределах случайности'};}
-const ACH=[{k:'first',ru:'Первый поход',need:s=>s.runs>=1},{k:'leg1',ru:'Легенда! Первая легендарка',need:s=>s.stats.rolls[4]>=1},
+const ACH=[{k:'first',ru:'Первый поход',need:s=>s.runs>=1},{k:'leg1',ru:'Легенда! Первая легендарная вещь',need:s=>s.stats.rolls[4]>=1},
  {k:'runs50',ru:'Бывалый: 50 походов',need:s=>s.runs>=50},{k:'loc3',ru:'Пепел и сталь: открыта крепость',need:s=>s.cleared.includes(2)},
  {k:'win',ru:'Покоритель Бездны',need:s=>s.won},{k:'rb1',ru:'Новая жизнь: перерождение',need:s=>s.rebirths>=1},{k:'rb3',ru:'Колесо судьбы: 3 перерождения',need:s=>s.rebirths>=3},
  {k:'switch10',ru:'Монти одобряет: 10 побед сменой',need:s=>s.monty.stats.switch[0]>=10},{k:'guides',ru:'Детектив: разгаданы все проводники',need:s=>Object.values(s.monty.guess).filter(x=>x==='ok').length>=3},
  {k:'set1',ru:'Коллекционер: собрана коллекция',need:s=>Object.values(s.sets).some(a=>a.length>=5)},{k:'plus8',ru:'Кузнец: снаряжение +8',need:s=>[s.weapon,s.armor].some(i=>i&&i.lvl>=8)},
  {k:'kelly',ru:'Инвестор: 10 ставок Келли в плюс',need:s=>s.kelly.bets>=10&&s.kelly.profit>0},{k:'lucky',ru:'Баловень судьбы: легендарок больше ожидаемого (≥5)',need:s=>s.stats.rolls[4]>=5&&s.stats.rolls[4]>s.stats.exp[4]},
- {k:'pity',ru:'Терпение: легендарка из осколков',need:s=>(s.pityUsed||0)>=1},{k:'sec',ru:'Принцесса выбрала: лучший из 8 у странника',need:s=>s.secStats.best>=1},{k:'dive',ru:'Дно достигнуто: глубокое погружение',need:s=>s.diveStats.top>=1},{k:'deck',ru:'Колода пуста: перетасовка',need:s=>(s.deckDone||0)>=1}];
+ {k:'pity',ru:'Терпение: легендарная вещь из осколков',need:s=>(s.pityUsed||0)>=1},{k:'sec',ru:'Принцесса выбрала: лучший из 8 у странника',need:s=>s.secStats.best>=1},{k:'dive',ru:'Дно достигнуто: глубокое погружение',need:s=>s.diveStats.top>=1},{k:'deck',ru:'Колода пуста: перетасовка',need:s=>(s.deckDone||0)>=1}];
 function checkAch(s){const out=[];for(const a of ACH)if(!s.ach[a.k]&&a.need(s)){s.ach[a.k]=Date.now();out.push(a);}return out;}
 // --- event deck (hypergeometric): 12 cards per location, drawn without replacement, one per banked run
-const DECK=[{k:'leg',n:1,ru:'Сокровище (легендарка)'},{k:'epic',n:2,ru:'Эпический тайник'},{k:'gold',n:4,ru:'Кошель золота'},{k:'shard',n:2,ru:'Осколки ×5'},{k:'trap',n:3,ru:'Ловушка (−5⚡)'}];
+const DECK=[{k:'leg',n:1,ru:'Сокровище (легендарная вещь)'},{k:'epic',n:2,ru:'Эпический тайник'},{k:'gold',n:4,ru:'Кошель золота'},{k:'shard',n:2,ru:'Осколки ×5'},{k:'trap',n:3,ru:'Ловушка (−5⚡)'}];
 const DECK_N=DECK.reduce((a,c)=>a+c.n,0);
 function deckOf(s,loc){return s.decks[Math.min(loc,5)]||(s.decks[Math.min(loc,5)]=Object.fromEntries(DECK.map(c=>[c.k,c.n])));}
 function deckLeft(d){return Object.values(d).reduce((a,b)=>a+b,0);}
@@ -474,7 +474,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  for(let i=0;i<N;i++){const r=simRun(s,loc,alloc,stopAt,rng);arr[i]=r.g;sum+=r.g;if(r.died)d++;}
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
-function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
+function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота за легендой',a:[0,0,n]}];}
 const api={SAVE_VER,diveRoute,extraP,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,SKIN_U,skinOk,ATTR,A,attrFree,attrAdd,attrReset,ZONES,DUEL_COST,PEN_COST,penCounter,penStart,penPick,penWinP,penEnd,RB_COST,rbStart,rbLeft,rbGuess,rbEnd,BOSSES,bossOf,duelStart,duelOdds,duelRound,duelEnd,duelHint,skinStage,skinB,LX,abyss,abyssMax,BASE_N,rollQ,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
