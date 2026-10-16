@@ -162,7 +162,11 @@ function startRun(s,now=Date.now()){if(s.run)return'run';if(s.hurtMs>0&&(!s.hurt
 // route map: each stage after the first offers 1-2 node types; non-fight nodes trigger a mini-game and are half as deadly
 const NODES={fight:{ru:'Бой',ic:'⚔️',w:55,d:'обычный этап: добыча и риск'},chest:{ru:'Комната сундуков',ic:'🎁',w:15,need:'monty',d:'игра Монти Холла, риск ×0.5'},
  mimic:{ru:'Подозрительный сундук',ic:'👀',w:12,need:'mimic',d:'мимик или клад? (Байес), риск ×0.5'},merchant:{ru:'Странник',ic:'🧳',w:8,need:'secretary',d:'задача о секретаре, риск ×0.5'},
- shaft:{ru:'Шахта',ic:'🕳️',w:10,need:'dive',d:'бесплатное погружение, риск ×0.5'}};
+ shaft:{ru:'Шахта',ic:'🕳️',w:10,need:'dive',d:'бесплатное погружение, риск ×0.5'},
+ shrine:{ru:'Алтарь',ic:'⛩',w:8,need:'kelly',d:'ставка мелочью из мешка (Келли), риск ×0.5'}};
+// shrine: bet a fraction of the run's melted cash on a 60% coin, stake capped
+const SHRINE_P=0.6;function shrineStake(s,f){const r=s.run;if(!r)return 0;return Math.min(Math.round((r.cash||0)*f),kellyCap(s));}
+function shrineBet(s,f,rng=Math.random){const r=s.run;if(!r)return null;const st=shrineStake(s,f);const win=rng()<SHRINE_P;r.cash=(r.cash||0)+(win?st:-st);return{win,st,cash:r.cash};}
 function nodeTypes(s){return Object.keys(NODES).filter(k=>!NODES[k].need||s.unl[NODES[k].need]);}
 function nodeProbs(s){const t=nodeTypes(s);const W=t.reduce((a,k)=>a+NODES[k].w,0);return t.map(k=>[k,NODES[k].w/W]);}
 function pickNode(s,rng){const pr=nodeProbs(s);let x=rng();for(const [k,p] of pr){x-=p;if(x<0)return k;}return 'fight';}
@@ -347,7 +351,7 @@ function switchWin(n,k){return (n-1)/(n*(n-k-1));}
 function maybeMonty(s,rng=Math.random,force=false,extra=0){if(!s.unl.monty||s.monty.pending)return false;s.monty.since++;
  if(!force){if(s.monty.since<2&&s.monty.plays>0)return false;if(rng()>0.5&&s.monty.plays>0)return false;}s.monty.since=0;
  const n=Math.min(7,doors(s)+extra);const g=s.monty.guides?Math.floor(rng()*s.monty.guides.length):-1;const k=n<=3?1:1+Math.floor(rng()*(n-2));
- s.monty.pending={n,k,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
+ s.monty.pending={route:extra>0,n,k,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
 function guideType(s,p){return p.guide<0||rule(s,'honest')?'classic':s.monty.guides[p.guide].type;}
 function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==null)return;p.pick=i;const n=p.n,k=p.k||n-2;
  const others=[...Array(n).keys()].filter(x=>x!==i);const type=guideType(s,p);const empt=others.filter(x=>x!==p.prize);
@@ -368,7 +372,7 @@ function montyFinal(s,choice,rng=Math.random){const p=s.monty.pending;if(!p||p.p
  if(!p.revealed&&p.offer!==false){const k=sw?'switch':'stay';s.monty.stats[k][1]++;if(win)s.monty.stats[k][0]++;
   if(p.guide>=0){const gs=s.monty.guides[p.guide].stats[k];gs[1]++;if(win)gs[0]++;}}
  s.monty.plays++;let reward;
- if(win){const r=Math.min(4,2+Math.floor(rng()*(p.n-1)));reward=makeItem(s,p.loc,r,rng);s.inv.push(reward);}
+ if(win){const r=Math.min(4,2+Math.floor(rng()*(p.n-1)));reward=makeItem(s,p.loc,r,rng);{const gs=setsAt(p.loc);if(p.route&&gs.length&&rng()<0.25){const g=gs[Math.floor(rng()*gs.length)];const mo=missOpen(s,g);const o=slotsOpen(s);reward=makeSetItem(s,p.loc,r,g,(mo.length?mo:o)[Math.floor(rng()*(mo.length?mo:o).length)],rng);}}reward.fresh=true;s.inv.push(reward);if(p.route&&rng()<0.4){const ck=CONS_K[Math.floor(rng()*CONS_K.length)];s.cons[ck]=(s.cons[ck]||0)+1;p.bonus=ck;}}
  else{reward=Math.round(15*LOCS[p.loc].lvl);s.gold+=reward;}
  p.reward=reward;return p;}
 function montyClear(s){s.monty.pending=null;}
@@ -398,7 +402,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};

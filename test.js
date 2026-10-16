@@ -96,4 +96,6 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  assert(Math.abs(G.switchWin(3,1)-2/3)<1e-9&&Math.abs(G.switchWin(5,1)-4/15)<1e-9,'N-chest formula');
  let w=0,n=0;const gi=m.monty.guides.findIndex(g=>g.type==='classic');for(let i=0;i<6000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true);const p=m.monty.pending;p.guide=gi;p.k=2;G.montyPick(m,0);G.montyFinal(m,G.montyClosed(p)[0]);n++;if(p.win)w++;}
  console.log('classic N=5 k=2 switch',(w/n).toFixed(3),'formula',G.switchWin(5,2).toFixed(3));assert(Math.abs(w/n-G.switchWin(5,2))<0.03,'N-chest sim');}
+{const s=G.newState();s.unl={kelly:1};s.cleared=[0];s.run={cash:1000};assert(G.shrineStake(s,1)===G.kellyCap(s),'shrine cap');s.run.cash=100;const r=G.shrineBet(s,0.2,()=>0.1);assert(r.win&&s.run.cash===120,'shrine win');G.shrineBet(s,0.5,()=>0.9);assert(s.run.cash===60,'shrine loss');
+ const m=G.newState();m.unl={monty:1};let b=0;for(let i=0;i<2000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true,2);const p=m.monty.pending;G.montyPick(m,p.prize);if(!p.done)G.montyFinal(m,p.pick);if(p.bonus)b++;}assert(b>500&&b<1100,'route bonus '+b);}
 console.log('TESTS OK');
