@@ -93,7 +93,7 @@ function attrAdd(s,k){if(!ATTR[k]||attrFree(s)<=0)return false;s.attr[k]=(s.attr
 function attrReset(s){const c=Math.round(50*LX(Math.max(0,...s.cleared)).lvl);if(s.gold<c)return false;s.gold-=c;s.attr={str:0,agi:0,int:0,end:0};return true;}
 // duel (Combats-style): pick attack zone + block zone; enemy has hidden habits (biased distributions)
 const ZONES=['голова','грудь','живот','пояс','ноги'],DUEL_COST=4,NZ=5;
-const DSTANCE={basic:{ru:'Обычная',d:'1 удар, 1 зона блока',h:1,bl:1,m:1},twin:{ru:'Два удара',d:'2 удара по 50% силы, 1 зона блока',h:2,bl:1,m:0.5,lvl:10},shield:{ru:'Щит',d:'1 удар в 70% силы, 2 зоны блока',h:1,bl:2,m:0.7,lvl:10}};
+const DSTANCE={basic:{ru:'Обычная',d:'1 удар, 1 зона блока',h:1,bl:1,m:1},twin:{ru:'Два удара',d:'2 удара по 50% силы, 1 зона блока',h:2,bl:1,m:0.5,lvl:10},shield:{ru:'Щит',d:'1 удар в 60% силы, 2 зоны блока',h:1,bl:2,m:0.6,lvl:10}};
 const DSPEC={precise:{ru:'Точный удар',c:3,d:'удар игнорирует блок'},counter:{ru:'Контратака',c:2,d:'после удачного блока: добавочный удар 70% мимо блока',need:'blocked'},wall:{ru:'Глухая защита',c:3,d:'блок трёх зон в этот раунд'},gamble:{ru:'Удар наудачу',c:1,d:'50%: двойной урон, 50%: промах'}};
 function perm(n,rng){const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function habit(rng,w=[0.4,0.25,0.15,0.12,0.08]){const p=perm(NZ,rng);const o=Array(NZ).fill(0);p.forEach((z,i)=>o[z]=w[i]);return o;}

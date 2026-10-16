@@ -119,6 +119,13 @@ console.log('TESTS OK');
  let run=0;for(let st=0;st<L.stages;st++)run+=G.stageEV(s,5,[0,0,0],st);const runPerMin=run/G.runCost(s,5)*(60/9);
  console.log('no-energy practice/min',practicePerMin.toFixed(0),'vs runs/min',runPerMin.toFixed(0));assert(practicePerMin<runPerMin*0.1,'practice << runs');
  let mq=0;for(let i=0;i<1e5;i++)mq=Math.max(mq,G.rollQ(Math.random));assert(mq>=4&&mq<15,'quality tail sane '+mq);console.log('ENDLESS OK');}
+// duel v2: 5 zones, stances at lvl10, no fixed pattern beats thinking, no stance dominates
+{assert(G.ZONES.length===5,'5 zones');const R=()=>Math.floor(Math.random()*5);const run=(pol,boss,n=1500)=>{let w=0,r=0;for(let i=0;i<n;i++){const s=G.newState();s.unl.duel=1;s.lvl=15;G.duelStart(s,Math.random,{free:1,boss,loc:boss?3:1});while(!s.duel.done)G.duelRound(s,pol(s));r+=s.duel.round;if(s.duel.win)w++;}return[w/n,r/n];};
+ const sm=st=>s=>{const h=G.duelHint(s),d=s.duel,sp=d.blocked&&d.charge>=2?'counter':d.charge>=3?'precise':null;return st==='twin'?{st,a:[h.atk,h.atk2],b:[h.blk],sp}:st==='shield'?{st,a:[h.atk],b:[h.blk,h.blk2],sp}:{st:'basic',a:[h.atk],b:[h.blk],sp};};
+ const b=run(sm('basic')),t=run(sm('twin')),sh=run(sm('shield'));let bestFixed=0;for(let a=0;a<5;a++)for(let c=0;c<5;c++)bestFixed=Math.max(bestFixed,run(()=>({st:'basic',a:[a],b:[c]}),false,300)[0]);
+ const rs=run(()=>({st:'shield',a:[R()],b:[R(),R()]}));console.log('duel5 smart',b[0].toFixed(2),'twin',t[0].toFixed(2),'shield',sh[0].toFixed(2),'bestFixed',bestFixed.toFixed(2),'randShield',rs[0].toFixed(2));
+ assert(bestFixed<b[0]-0.08,'no dominant fixed pattern');assert(Math.max(t[0],sh[0])-Math.min(b[0],t[0],sh[0])<0.15,'no dominant stance');assert(rs[0]<b[0]-0.2,'random stance play loses');
+ [b,t,sh].forEach(x=>assert(x[1]>=4.5&&x[1]<=8,'duel length 5-8'));const O=G.duelOdds(Object.assign(G.newState(),{attr:{agi:99,int:99}}));assert(O.dodge<=0.32&&O.crit<=0.5&&O.dodge>0.3,'dodge/crit capped');}
 // duel: thinking beats random, duels stay short
 {const R=()=>Math.floor(Math.random()*5);const play=(smart,n=3000)=>{let w=0,r=0;for(let i=0;i<n;i++){const s=G.newState();s.unl.duel=1;s.lvl=15;G.duelStart(s,Math.random,{free:1});while(!s.duel.done){const h=G.duelHint(s);G.duelRound(s,smart?{st:'basic',a:[h.atk],b:[h.blk],sp:s.duel.blocked&&s.duel.charge>=2?'counter':s.duel.charge>=3?'precise':null}:{st:'basic',a:[R()],b:[R()]});}r+=s.duel.round;if(s.duel.win)w++;}return[w/n,r/n];};
  const a=play(false),b=play(true);console.log('duel random',a.map(x=>x.toFixed(2)).join('/'),'smart',b.map(x=>x.toFixed(2)).join('/'));assert(b[0]>a[0]+0.15&&a[1]<9&&b[1]<9,'duel balance');
