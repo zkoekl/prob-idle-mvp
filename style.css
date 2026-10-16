@@ -211,3 +211,4 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .evwait{display:none!important}
 .theme-combats .item .txt{color:#2a1c10}.theme-combats .item small,.theme-combats .item .hint{color:#4a3520!important}
 .theme-combats .item.guide .txt b{color:#3a1c08}
+.tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1px solid currentColor;font-size:.7rem;font-family:sans-serif;opacity:.8;cursor:help;vertical-align:middle}
