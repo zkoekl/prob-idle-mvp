@@ -243,7 +243,7 @@ const DAILY=[{k:'leg',ru:'День удачи: легендарки ×1.5'},{k:'
  {k:'gold',ru:'Ярмарка: золото +25%'},{k:'chips',ru:'Азартный день: шанс фишек +25%'},{k:'mimic',ru:'День мимиков: подозрительные сундуки чаще'},{k:'xp',ru:'День учёбы: опыт ×1.5'}];
 function dayKey(d=new Date()){return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();}
 function daily(s,d){if(!s.unl.stats)return null;let h=dayKey(d);h=(h^61)^(h>>>16);h=h+(h<<3);h^=h>>>4;h=Math.imul(h,0x27d4eb2d);h^=h>>>15;return DAILY[Math.abs(h)%DAILY.length];}
-function dmod(s,k){const d=daily(s);return!!d&&d.k===k;}
+function dmod(s,k){if(s.noDaily)return false;const d=daily(s);return!!d&&d.k===k;}
 function luckVerdict(a,e){if(e<3)return{lo:0,hi:0,v:'мало данных'};const sd=Math.sqrt(e);const lo=Math.max(0,e-1.96*sd),hi=e+1.96*sd;
  return{lo,hi,v:a>hi?'необычно везёт':a<lo?'необычно не везёт':'в пределах случайности'};}
 const ACH=[{k:'first',ru:'Первый поход',need:s=>s.runs>=1},{k:'leg1',ru:'Легенда! Первая легендарка',need:s=>s.stats.rolls[4]>=1},
@@ -277,7 +277,7 @@ function secTake(s){const m=s.sec;if(!m)return null;const it=m.items[m.i];s.inv.
  s.secStats.n++;if(rank===1)s.secStats.best++;s.sec=null;return{it,rank,all:m.items};}
 function secPass(s){const m=s.sec;if(!m)return null;if(m.i>=SEC_N-1)return secTake(s);m.i++;return 'next';}
 // --- deep dive: random walk, gambler's ruin. Start at A, step +1 w.p. p else -1; reach N = treasure, 0 = ruin; cash out anytime
-const DIVE={A:3,N:10,cost:12,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
+const DIVE={A:3,N:10,cost:14,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
 // step policies: success prob shift, depth gained on success, extra energy
 const DSTEP={safe:{ru:'Осторожно',ic:'🟢',dp:0.05,m:1,e:1},norm:{ru:'Обычно',ic:'⬇️',dp:0,m:1,e:0},bold:{ru:'Смело',ic:'🔥',dp:0,m:2,e:0,f:1}};
 // bonuses have diminishing returns: total shift never exceeds +4%
@@ -288,7 +288,7 @@ function divePolicyP(p,x,N,pol,rope){const m=DSTEP[pol].m,fl=DSTEP[pol].f||1;con
  for(let it=0;it<3000;it++){const g=f.slice();for(let y=1;y<N;y++)g[y]=P(y)*at(f,y+m)+(1-P(y))*at(f,y-fl);f=g;}
  if(!rope)return f[Math.min(N,x)];let h=f.slice();for(let it=0;it<3000;it++){const g=h.slice();for(let y=1;y<N;y++)g[y]=P(y)*at(h,y+m)+(1-P(y))*f[y];h=g;}return h[Math.min(N,x)];}
 function diveMul(s){return LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths);}
-function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(2*k*k*diveMul(s));}
+function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(1.5*k*k*diveMul(s));}
 function diveItemsVal(s,m){const loc=Math.max(0,...s.cleared);let v=0;for(const d in DIVE.ITEMS)if(m>=+d)v+=itemValue(s,loc,DIVE.ITEMS[d]);return v;}
 function ropeCost(s){return Math.round(40*diveMul(s));}function torchCost(s){return Math.round(15*diveMul(s));}
 function diveStart(s){if(!s.unl.dive||s.dive||(s.energy<DIVE.cost&&!(s.diveFree>0)))return false;if(s.diveFree>0)s.diveFree--;else s.energy-=DIVE.cost;s.dive={x:DIVE.A,max:DIVE.A,path:[DIVE.A],p:diveP(s),pot:{gold:0,items:[]},rope:false,torch:0,t:null,nextT:null};return true;}

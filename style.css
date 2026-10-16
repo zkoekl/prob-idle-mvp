@@ -177,3 +177,6 @@ html{background:#16191f}.stance button small{display:block}.stance button{font-s
 .tier{grid-template-columns:minmax(78px,max-content) 1fr auto}.tier b{white-space:nowrap}
 @media(min-width:521px){.chip{grid-template-columns:minmax(110px,max-content) 1fr auto}}.chip{border-color:var(--line)}
 .dpol button.big small,.nodebtn small{color:#3b2f14}.dpol button.sel small{color:var(--ink)}
+details.fold{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:8px 0}details.fold>summary{cursor:pointer;font-weight:600;color:var(--gold)}details.fold>summary small{font-weight:400;margin-left:6px}
+.slots .item .af{display:none}.slots{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.chip .m{font-size:.74rem}
