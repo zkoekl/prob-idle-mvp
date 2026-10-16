@@ -60,10 +60,10 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  // dive: exact optimal EV per energy (DP over state (depth,max) and policy choice) vs. normal runs' gold per energy
  {const s=base();const p=G.diveP(s),N=G.DIVE.N,A=G.DIVE.A;const pot=m=>G.diveCash(s,m)+G.diveItemsVal(s,m);const ePrice=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);
   let V={};const key=(x,m)=>x+','+m;const get=(x,m)=>x<=0?0:x>=N?pot(N):(V[key(x,m)]||0);
-  for(let it=0;it<400;it++){const W={};for(let m=A;m<=N;m++)for(let x=1;x<=m&&x<N;x++){let best=m>A?pot(m):0;for(const k in G.DSTEP){const D=G.DSTEP[k];const P=Math.max(0.05,Math.min(0.95,p+D.dp));const nx=Math.min(N,x+D.m);
+  for(let it=0;it<400;it++){const W={};for(let m=A;m<=N;m++)for(let x=1;x<=m&&x<N;x++){let best=m>A?pot(m):0;for(const k in G.DSTEP){const D=G.DSTEP[k];const P=Math.max(0.05,Math.min(0.95,p+G.stepShift(k,x,0)));const nx=Math.min(N,x+D.m);
     const v=P*get(nx,Math.max(m,nx))+(1-P)*get(x-1,m)-D.e*ePrice;if(v>best)best=v;}W[key(x,m)]=best;}V=W;}
   const dive=get(A,A)/G.DIVE.cost;console.log('gold/energy dive',dive.toFixed(1),'runs',ePrice.toFixed(1));assert(dive<ePrice,'dive below runs');
-  assert(Math.abs(G.divePolicyP(0.47,3,10,'norm')-(1-G.ruinP(0.47,3,10)))<1e-6,'policy P matches ruin formula');
+  assert(G.divePolicyP(0.49,3,10,'safe')>G.divePolicyP(0.49,3,10,'norm'),'safe policy P');
   assert(G.divePolicyP(0.47,3,10,'norm',true)>G.divePolicyP(0.47,3,10,'norm'),'rope helps');
   const d=G.newState();d.unl.dive=1;d.energy=40;d.gold=1e4;G.diveStart(d);assert(G.diveBuy(d,'rope')&&!G.diveBuy(d,'rope'),'one rope');assert(G.diveBuy(d,'torch')&&d.dive.nextT!==null,'torch');let r;while(d.dive)r=G.diveStep(d,Math.random,'bold');assert(r.end,'dive ends');}
  // event triggers (monty/mimic/merchant/deck) are tied to runs: rewards per run bounded
@@ -81,7 +81,7 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  G.equipBest(s,'best');assert((G.setCount(s).guard||0)<6,'best applied');
  const s2=G.newState();s2.unl={locs:1};s2.cleared=[0,1,2];const g2=G.GSETS[0];const a=G.setComplete(s2,1,g2,10),b=G.setComplete(s2,1,g2,100);assert(a<b&&b<=1&&a>=0,'coupon monotone '+a+' '+b);
  assert(G.setComplete(s2,0,g2,100)===0,'no drops below set tier');
- const s3=G.newState();for(const sl of G.SLOTS)s3[sl]=G.makeSetItem(s3,4,4,G.GSETS[3],sl);s3.monty.guides=[{type:'random'}];assert(G.guideType(s3,{guide:0})==='honest','honest rule');
+ const s3=G.newState();for(const sl of G.SLOTS)s3[sl]=G.makeSetItem(s3,4,4,G.GSETS[3],sl);s3.monty.guides=[{type:'random'}];assert(G.guideType(s3,{guide:0})==='classic','honest rule');
  const s4=G.newState();for(const sl of G.SLOTS)s4[sl]=G.makeSetItem(s4,4,4,G.GSETS[2],sl);assert(G.chipTotal(s4)===s4.chips+1,'chip rule');
  const s5=G.newState();for(const sl of G.SLOTS)s5[sl]=G.makeSetItem(s5,4,4,G.GSETS[0],sl);assert(G.pityCost(s5)===25,'pity rule');
  let n=0,set=0;const s6=G.newState();s6.unl={locs:1};s6.cleared=[0,1,2,3];for(let i=0;i<20000;i++){const it=G.maybeSet(s6,G.makeItem(s6,3,3));if(it.set)s6.inv.push(it);if(it.set){set++;assert(G.GSETS.find(x=>x.k===it.set).loc<=3,'tier');}n++;}
@@ -91,4 +91,9 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  s.run.waiting=false;const r=G.rollStage(s,()=>0);assert(r.potion&&!r.died,'potion saves');
  const s2=G.newState();s2.unl={stages:1,locs:1};s2.cleared=[0,1];s2.loc=1;s2.energy=99;s2.lvl=1;s2.weapon={id:1,slot:'weapon',r:1,lvl:3,power:3,affixes:[]};G.startRun(s2);const r2=G.rollStage(s2,()=>0);
  assert(r2.died&&r2.heal>0&&G.startRun(s2,Date.now())==='hurt'&&s2.weapon.lvl===2,'death penalty '+JSON.stringify(r2));}
+{const m=G.newState();m.unl.monty=1;m.doorsUp=2;G.initGuides(m);const run=(type,sw)=>{const gi=m.monty.guides.findIndex(g=>g.type===type);let w=0,n=0;for(let i=0;i<4000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true);const p=m.monty.pending;p.guide=gi;G.montyPick(m,0);if(!p.done){const c=G.montyClosed(p);G.montyFinal(m,sw?c[0]:0);}if(p.revealed)continue;n++;if(p.win)w++;}return w/n;};
+ const h=run('hell',true),a=run('angel',true),a0=run('angel',false);console.log('hell switch',h.toFixed(3),'angel switch',a.toFixed(3),'angel stay',a0.toFixed(3));assert(a>a0&&h<0.05,'angel/hell');
+ assert(Math.abs(G.switchWin(3,1)-2/3)<1e-9&&Math.abs(G.switchWin(5,1)-4/15)<1e-9,'N-chest formula');
+ let w=0,n=0;const gi=m.monty.guides.findIndex(g=>g.type==='classic');for(let i=0;i<6000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true);const p=m.monty.pending;p.guide=gi;p.k=2;G.montyPick(m,0);G.montyFinal(m,G.montyClosed(p)[0]);n++;if(p.win)w++;}
+ console.log('classic N=5 k=2 switch',(w/n).toFixed(3),'formula',G.switchWin(5,2).toFixed(3));assert(Math.abs(w/n-G.switchWin(5,2))<0.03,'N-chest sim');}
 console.log('TESTS OK');

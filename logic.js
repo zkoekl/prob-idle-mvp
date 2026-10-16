@@ -82,7 +82,7 @@ function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards
  alloc:[0,0,0],inv:[],cons:{},arm:{},weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
-function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);if(n.monty.guides)n.monty.guides.forEach((g,i)=>g.name=GUIDE_NAMES[i]);return n;}}catch(e){}return null;}
+function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);if(n.monty.guides&&(n.monty.guides.length!==5||n.monty.guides.some(g=>!GTYPES.includes(g.type)))){n.monty.guides=null;initGuides(n);}return n;}}catch(e){}return null;}
 // --- hero
 function aff(s,k,eq){eq=eq||eqOf(s);let v=setBonus(s,k)+setAff(s,k,eq);for(const it of eq){if(it)for(const a of it.affixes)if(a.k===k)v+=a.v;}return v;}
 function itemPower(it){return Math.round(it.power*Math.pow(1.12,it.lvl||0));}
@@ -272,13 +272,14 @@ function secPass(s){const m=s.sec;if(!m)return null;if(m.i>=SEC_N-1)return secTa
 // --- deep dive: random walk, gambler's ruin. Start at A, step +1 w.p. p else -1; reach N = treasure, 0 = ruin; cash out anytime
 const DIVE={A:3,N:10,cost:12,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
 // step policies: success prob shift, depth gained on success, extra energy
-const DSTEP={safe:{ru:'Осторожно',ic:'🟢',dp:0.1,m:1,e:1},norm:{ru:'Обычно',ic:'⬇️',dp:0,m:1,e:0},bold:{ru:'Смело',ic:'🔥',dp:-0.08,m:2,e:0}};
-function diveP(s){return Math.min(0.6,0.47+s.lensUp*0.005+(s.perks.luck||0)*0.01+0.01*((syn(s,'shadow')||0)+(syn(s,'luck')||0)));}
+const DSTEP={safe:{ru:'Осторожно',ic:'🟢',dp:0.05,m:1,e:1},norm:{ru:'Обычно',ic:'⬇️',dp:0,m:1,e:0},bold:{ru:'Смело',ic:'🔥',dp:0,m:2,e:0,f:1}};
+// bonuses have diminishing returns: total shift never exceeds +4%
+function diveP(s){const raw=s.lensUp*0.005+(s.perks.luck||0)*0.01+0.01*((syn(s,'shadow')||0)+(syn(s,'luck')||0));return 0.49+0.04*(1-Math.exp(-raw/0.04));}
 function ruinP(p,a,N){if(a<=0)return 1;if(a>=N)return 0;const q=1-p;if(Math.abs(p-q)<1e-9)return 1-a/N;const r=q/p;return(Math.pow(r,a)-Math.pow(r,N))/(1-Math.pow(r,N));}
 // exact chance to reach the bottom from x with a fixed policy (and optional rope = one setback ignored)
-function divePolicyP(p,x,N,pol,rope){const P=Math.max(0.05,Math.min(0.95,p+DSTEP[pol].dp)),m=DSTEP[pol].m;let f=new Array(N+1).fill(0);f[N]=1;
- for(let it=0;it<3000;it++){const g=f.slice();for(let y=1;y<N;y++)g[y]=P*f[Math.min(N,y+m)]+(1-P)*f[y-1];f=g;}
- if(!rope)return f[Math.min(N,x)];let h=f.slice();for(let it=0;it<3000;it++){const g=h.slice();for(let y=1;y<N;y++)g[y]=P*h[Math.min(N,y+m)]+(1-P)*f[y];h=g;}return h[Math.min(N,x)];}
+function divePolicyP(p,x,N,pol,rope){const m=DSTEP[pol].m,fl=DSTEP[pol].f||1;const P=y=>Math.max(0.05,Math.min(0.95,p+stepShift(pol,y,0)));const at=(f,y)=>f[Math.max(0,Math.min(N,y))];let f=new Array(N+1).fill(0);f[N]=1;
+ for(let it=0;it<3000;it++){const g=f.slice();for(let y=1;y<N;y++)g[y]=P(y)*at(f,y+m)+(1-P(y))*at(f,y-fl);f=g;}
+ if(!rope)return f[Math.min(N,x)];let h=f.slice();for(let it=0;it<3000;it++){const g=h.slice();for(let y=1;y<N;y++)g[y]=P(y)*at(h,y+m)+(1-P(y))*f[y];h=g;}return h[Math.min(N,x)];}
 function diveMul(s){return LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths);}
 function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(2*k*k*diveMul(s));}
 function diveItemsVal(s,m){const loc=Math.max(0,...s.cleared);let v=0;for(const d in DIVE.ITEMS)if(m>=+d)v+=itemValue(s,loc,DIVE.ITEMS[d]);return v;}
@@ -287,10 +288,12 @@ function diveStart(s){if(!s.unl.dive||s.dive||(s.energy<DIVE.cost&&!(s.diveFree>
 function diveTerrain(rng){const r=rng();return r<1/3?-0.1:r<2/3?0:0.1;}
 function diveBuy(s,what,rng=Math.random){const d=s.dive;if(!d)return false;if(what==='rope'){if(d.rope)return false;if(s.cons.rope>0)s.cons.rope--;else{if(s.gold<ropeCost(s))return false;s.gold-=ropeCost(s);}d.rope=true;return true;}
  if(what==='torch'){if(d.nextT!==null)return false;if(s.cons.torch>0)s.cons.torch--;else{if(s.gold<torchCost(s))return false;s.gold-=torchCost(s);}d.nextT=diveTerrain(rng);return true;}return false;}
-function diveStepP(s,pol){const d=s.dive;return Math.max(0.05,Math.min(0.95,d.p+DSTEP[pol].dp+(d.nextT||0)));}
+// bold gets harder with depth and with consecutive bold steps; failing a bold step drops 2
+function stepShift(pol,x,bs){return DSTEP[pol].dp+(pol==='bold'?-0.025*x-0.08*(bs||0):pol==='norm'?-0.012*x:0);}
+function diveStepP(s,pol){const d=s.dive;return Math.max(0.05,Math.min(0.95,d.p+stepShift(pol,d.x,d.bs)+(d.nextT||0)));}
 function diveStep(s,rng=Math.random,pol='norm'){const d=s.dive;if(!d)return null;const P=DSTEP[pol];if(P.e&&s.energy<P.e)return null;s.energy-=P.e;
- const t=d.nextT!==null?d.nextT:diveTerrain(rng);d.nextT=null;const ok=rng()<Math.max(0.05,Math.min(0.95,d.p+P.dp+t));const got=[];let saved=false;
- if(ok){d.x=Math.min(DIVE.N,d.x+P.m);}else if(d.rope){d.rope=false;saved=true;}else d.x--;d.path.push(d.x);
+ const t=d.nextT!==null?d.nextT:diveTerrain(rng);d.nextT=null;const ok=rng()<Math.max(0.05,Math.min(0.95,d.p+stepShift(pol,d.x,d.bs)+t));d.bs=pol==='bold'?(d.bs||0)+1:0;if(pol==='safe')d.nextT=diveTerrain(rng);const got=[];let saved=false;
+ if(ok){d.x=Math.min(DIVE.N,d.x+P.m);}else if(d.rope){d.rope=false;saved=true;}else d.x-=(P.f||1);d.x=Math.max(0,d.x);d.path.push(d.x);
  if(d.x>d.max){const loc=Math.max(0,...s.cleared);d.pot.gold+=diveCash(s,d.x)-diveCash(s,d.max);for(let y=d.max+1;y<=d.x;y++)if(DIVE.ITEMS[y]!==undefined){const it=makeItem(s,loc,DIVE.ITEMS[y],rng);d.pot.items.push(it);got.push(it);}d.max=d.x;}
  if(d.x<=0){s.dive=null;s.diveStats.n++;s.diveStats.ruin++;return{end:'ruin',lost:d.pot};}
  if(d.x>=DIVE.N){s.diveStats.top++;const r=diveCashOut(s);r.end='top';return r;}
@@ -330,26 +333,39 @@ function rebirth(s,perk){if(!s.won||!perksAvail(s).find(p=>p.k===perk))return fa
  keep.perks[perk]=(keep.perks[perk]||0)+1;const n=Object.assign(newState(),keep);n.runs=0;n.chips=2+(keep.perks.chips||0);n.lastSeen=Date.now();n.energyT=Date.now();
  n.monty.pending=null;Object.keys(s).forEach(k=>delete s[k]);Object.assign(s,n);return true;}
 // --- Monty Hall chests
-const GUIDE_NAMES=['Хранитель Ключей','Шепчущий','Серая Сова'];
-function initGuides(s){if(s.monty.guides)return;const t=['honest','unreliable','random'];for(let i=2;i>0;i--){const j=Math.floor(Math.random()*(i+1));[t[i],t[j]]=[t[j],t[i]];}
- s.monty.guides=t.map((type,i)=>({name:GUIDE_NAMES[i],type,stats:{stay:[0,0],switch:[0,0]}}));}
+const GUIDE_NAMES=['Хранитель Ключей','Шепчущий','Серая Сова','Ржавый Рыцарь','Лунная Дева'];
+const GTYPES=['classic','random','hell','angel','biased'];
+const GT_RU={classic:'Знающий',random:'Невежда',hell:'Коварный',angel:'Добрый',biased:'Левша'};
+const GT_RULE={classic:'знает, где приз; всегда открывает пустые и всегда предлагает обмен → меняйте (выигрыш (N−1)/(N(N−k−1)))',
+ random:'не знает; открывает наугад и может открыть приз. Если открыл пустые, шансы равны → всё равно',
+ hell:'предлагает обмен, только если вы УГАДАЛИ → никогда не меняйте',angel:'предлагает обмен, только если вы ОШИБЛИСЬ → всегда меняйте',
+ biased:'знает; открывает самые левые пустые сундуки. Если пропустил левый сундук, приз скорее там'};
+function initGuides(s){if(s.monty.guides&&s.monty.guides.length===5)return;const t=GTYPES.slice();for(let i=t.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[t[i],t[j]]=[t[j],t[i]];}
+ s.monty.guides=t.map((type,i)=>({name:GUIDE_NAMES[i],type,stats:{stay:[0,0],switch:[0,0],offer:[0,0]}}));s.monty.guess={};}
 function doors(s){return 3+s.doorsUp;}
-function maybeMonty(s,rng=Math.random,force=false){if(!s.unl.monty||s.monty.pending)return false;s.monty.since++;
+function switchWin(n,k){return (n-1)/(n*(n-k-1));}
+function maybeMonty(s,rng=Math.random,force=false,extra=0){if(!s.unl.monty||s.monty.pending)return false;s.monty.since++;
  if(!force){if(s.monty.since<2&&s.monty.plays>0)return false;if(rng()>0.5&&s.monty.plays>0)return false;}s.monty.since=0;
- const n=doors(s);const g=s.monty.guides?Math.floor(rng()*3):-1;
- s.monty.pending={n,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
-function guideType(s,p){return p.guide<0||rule(s,'honest')?'honest':s.monty.guides[p.guide].type;}
-function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==null)return;p.pick=i;const n=p.n;
- const others=[...Array(n).keys()].filter(x=>x!==i);const type=guideType(s,p);
- const shuffle=a=>{for(let k=a.length-1;k>0;k--){const j=Math.floor(rng()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;};
- let open;if(type==='honest'||(type==='unreliable'&&rng()<0.6))open=shuffle(others.filter(x=>x!==p.prize)).slice(0,n-2);
- else open=shuffle(others.slice()).slice(0,n-2);
- p.opened=open;p.revealed=open.includes(p.prize);
- if(s.perks.seer&&type!=='honest'&&!p.revealed&&rng()<0.5){const e=montyClosed(p).filter(x=>x!==p.prize);if(e.length)p.hint=e[0];}}
+ const n=Math.min(7,doors(s)+extra);const g=s.monty.guides?Math.floor(rng()*s.monty.guides.length):-1;const k=n<=3?1:1+Math.floor(rng()*(n-2));
+ s.monty.pending={n,k,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
+function guideType(s,p){return p.guide<0||rule(s,'honest')?'classic':s.monty.guides[p.guide].type;}
+function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==null)return;p.pick=i;const n=p.n,k=p.k||n-2;
+ const others=[...Array(n).keys()].filter(x=>x!==i);const type=guideType(s,p);const empt=others.filter(x=>x!==p.prize);
+ const shuffle=a=>{for(let q=a.length-1;q>0;q--){const j=Math.floor(rng()*(q+1));[a[q],a[j]]=[a[j],a[q]];}return a;};
+ let open=[],offer=true;
+ if(type==='classic')open=shuffle(empt).slice(0,k);
+ else if(type==='random')open=shuffle(others.slice()).slice(0,k);
+ else if(type==='hell'){offer=i===p.prize;if(offer)open=shuffle(empt).slice(0,k);}
+ else if(type==='angel'){offer=i!==p.prize;if(offer)open=shuffle(empt).slice(0,k);}
+ else if(type==='biased')open=rng()<0.85?empt.slice().sort((a,b)=>a-b).slice(0,k):shuffle(empt).slice(0,k);
+ p.opened=open;p.offer=offer;p.revealed=open.includes(p.prize);
+ if(p.guide>=0){const st=s.monty.guides[p.guide].stats;st.offer=st.offer||[0,0];st.offer[1]++;if(offer)st.offer[0]++;}
+ if(!offer){montyFinal(s,i,rng);return;}
+ if(s.perks.seer&&type!=='classic'&&!p.revealed&&rng()<0.5){const e=montyClosed(p).filter(x=>x!==p.prize);if(e.length)p.hint=e[0];}}
 function montyClosed(p){return[...Array(p.n).keys()].filter(x=>x!==p.pick&&!p.opened.includes(x));}
 function montyFinal(s,choice,rng=Math.random){const p=s.monty.pending;if(!p||p.pick===null||p.done)return null;
  const sw=choice!==p.pick;const win=choice===p.prize;p.done=true;p.final=choice;p.win=win;
- if(!p.revealed){const k=sw?'switch':'stay';s.monty.stats[k][1]++;if(win)s.monty.stats[k][0]++;
+ if(!p.revealed&&p.offer!==false){const k=sw?'switch':'stay';s.monty.stats[k][1]++;if(win)s.monty.stats[k][0]++;
   if(p.guide>=0){const gs=s.monty.guides[p.guide].stats[k];gs[1]++;if(win)gs[0]++;}}
  s.monty.plays++;let reward;
  if(win){const r=Math.min(4,2+Math.floor(rng()*(p.n-1)));reward=makeItem(s,p.loc,r,rng);s.inv.push(reward);}
@@ -357,8 +373,8 @@ function montyFinal(s,choice,rng=Math.random){const p=s.monty.pending;if(!p||p.p
  p.reward=reward;return p;}
 function montyClear(s){s.monty.pending=null;}
 function guessGuide(s,gi,type){const g=s.monty.guides&&s.monty.guides[gi];if(!g||s.monty.guess[gi]==='ok')return null;
- if(g.stats.stay[1]+g.stats.switch[1]<5)return'few';
- if(g.type===type){s.monty.guess[gi]='ok';s.shards+=15;return'ok';}g.stats={stay:[0,0],switch:[0,0]};return'no';}
+ if((g.stats.offer||[0,0])[1]<5)return'few';
+ if(g.type===type){s.monty.guess[gi]='ok';s.shards+=15;return'ok';}g.stats={stay:[0,0],switch:[0,0],offer:[0,0]};return'no';}
 // --- shop
 const SHOP={hp:s=>Math.round(25*Math.pow(1.38,s.hpUp)),dmg:s=>Math.round(30*Math.pow(1.38,s.dmgUp)),
  maxE:s=>Math.round(50*Math.pow(1.6,s.maxEUp)),regen:s=>s.regenUp>=15?Infinity:Math.round(70*Math.pow(1.7,s.regenUp)),
@@ -382,7 +398,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
