@@ -85,7 +85,7 @@ function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])cont
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
 // hero attributes: 1 point per level; modest sidegrades
-const ATTR={str:{ru:'Сила',ic:'💪',d:'+3% урона (и в дуэли)'},agi:{ru:'Ловкость',ic:'🤸',d:'−1% риска гибели; +1.6% уворота в дуэли'},int:{ru:'Интуиция',ic:'👁',d:'+1.5% удачи; +3.5% крита в дуэли'},end:{ru:'Выносливость',ic:'❤️',d:'+3% здоровья (и в дуэли)'}};
+const ATTR={str:{ru:'Сила',ic:'💪',d:'+3% урона в походах и с боссами; +3% удара в поединке'},agi:{ru:'Ловкость',ic:'🤸',d:'−1% риска гибели в походе; чуть надёжнее шаги в погружении (до +1%); +1.6% уворота в поединке'},int:{ru:'Интуиция',ic:'👁',d:'+1.5% удачи на добычу; с 5 — подсказки в поединке, с 8 — догадка о характере проводника; +3.5% крита в поединке'},end:{ru:'Выносливость',ic:'❤️',d:'+3% здоровья; +1 к запасу энергии за 2 очка; больше здоровья в поединке'}};
 function aSum(s){return Object.values(s.attr||{}).reduce((a,b)=>a+b,0);}
 function A(s,k){return (s.attr&&s.attr[k])||0;}
 function attrFree(s){return Math.max(0,(s.lvl-1)-Object.values(s.attr||{}).reduce((a,b)=>a+b,0));}
@@ -95,17 +95,17 @@ function attrReset(s){const c=Math.round(50*LX(Math.max(0,...s.cleared)).lvl);if
 const ZONES=['голова','корпус','ноги'],DUEL_COST=4;
 function perm3(rng){const a=[0,1,2];for(let i=2;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function habit(rng){const w=[0.55,0.3,0.15];const p=perm3(rng);const o=[0,0,0];p.forEach((z,i)=>o[z]=w[i]);return o;}
-const BOSSES=[{k:'morra',name:'Морра, Болотная Ведьма',lore:'Топь шепчет её голосом. Кто слушал — остался в трясине.',img:'img/enemy_boss1.webp',atk:[0.15,0.25,0.6],blk:[0.6,0.25,0.15],mode:null,tip:'бьёт по ногам, бережёт голову'},
- {k:'ash',name:'Пепельный Рыцарь',lore:'Крепость сгорела, а он всё несёт дозор.',img:'img/enemy_boss2.webp',atk:[0.34,0.33,0.33],blk:[0.34,0.33,0.33],mode:'repeat',tip:'упрям: часто повторяет прошлый удар'},
- {k:'bone',name:'Костяной Король',lore:'Он правил мёртвыми дольше, чем стоят города живых.',img:'img/enemy_boss3.webp',atk:[0.5,0.3,0.2],blk:[0.25,0.5,0.25],mode:null,tip:'метит в голову, закрывает корпус'},
- {k:'abyss',name:'Владыка Бездны',lore:'Он видел каждый твой удар ещё до того, как ты родился.',img:'img/enemy_boss4.webp',atk:[0.33,0.34,0.33],blk:[0.33,0.34,0.33],mode:'mirror',tip:'учится: ставит блок туда, куда вы били в прошлый раз'}];
+const BOSSES=[{k:'frost',name:'Хладный Змей-Рыцарь',lore:'Он заковал себя в лёд, чтобы не чувствовать ран. И не чувствует.',img:'boss2',atk:[0.34,0.33,0.33],blk:[0.34,0.33,0.33],mode:'repeat',tip:'упрям: часто повторяет прошлый удар'},
+ {k:'plague',name:'Чумной Колосс',lore:'Сложен из костей тех, кто пришёл за его сокровищем.',img:'boss3',atk:[0.5,0.3,0.2],blk:[0.25,0.5,0.25],mode:null,tip:'метит в голову, закрывает корпус'},
+ {k:'abyss',name:'Владыка Бездны',lore:'Он видел каждый твой удар ещё до того, как ты родился.',img:'boss',atk:[0.33,0.34,0.33],blk:[0.33,0.34,0.33],mode:'mirror',tip:'учится: ставит блок туда, куда вы били в прошлый раз'},
+ {k:'fate',name:'Госпожа Судьба',lore:'Последняя хозяйка жребия. Её кости никогда не падают дважды одинаково.',img:'boss4',atk:[0.55,0.3,0.15],blk:[0.55,0.3,0.15],mode:'shift',tip:'меняет привычки каждые 4 раунда — следите за свежими раундами'}];
 function bossOf(loc){return BOSSES[loc>=5?3:loc>=4?2:loc>=3?1:0];}
 function duelStart(s,rng=Math.random,o={}){if(s.duel||!s.unl.duel)return false;if(!o.free){if(s.energy<DUEL_COST)return false;s.energy-=DUEL_COST;}
  const loc=o.loc!==undefined?o.loc:Math.max(0,...s.cleared);const boss=!!o.boss;const names=['Разбойник','Наёмник','Гладиатор','Рыцарь-отступник','Чемпион арены'];
  s.duel={loc,boss,route:!!o.route,practice:!!o.practice,name:boss?bossOf(loc).name:names[Math.floor(rng()*names.length)],bk:boss?bossOf(loc).k:null,mode:boss?bossOf(loc).mode:null,atk:boss?bossOf(loc).atk.slice():habit(rng),blk:boss?bossOf(loc).blk.slice():habit(rng),hp:100+3*A(s,'end'),max:100+3*A(s,'end'),ehp:Math.round((boss?130:105)*(1+0.015*aSum(s))),emax:Math.round((boss?130:105)*(1+0.015*aSum(s))),seen:{atk:[0,0,0],blk:[0,0,0]},log:[],round:0,done:false};return true;}
 function duelOdds(s){const d=s.duel;return{dodge:Math.min(0.4,0.08+0.016*A(s,'agi')),crit:Math.min(0.7,0.08+0.035*A(s,'int')),edodge:0.08,ecrit:0.1,dmg:Math.round(22*(1+0.03*A(s,'str'))),edmg:Math.round((d&&d.boss?26:22)*(1+0.006*aSum(s)))};}
 function pick(w,rng){let x=rng();for(let i=0;i<3;i++){x-=w[i];if(x<0)return i;}return 2;}
-function duelRound(s,a,b,rng=Math.random){const d=s.duel;if(!d||d.done)return null;const O=duelOdds(s);const L_=d.log[d.log.length-1];let ea=pick(d.atk,rng),eb=pick(d.blk,rng);if(L_&&d.mode==='repeat'&&rng()<0.65)ea=L_.ea;if(L_&&d.mode==='mirror'&&rng()<0.6)eb=L_.a;d.seen.atk[ea]++;d.seen.blk[eb]++;d.round++;
+function duelRound(s,a,b,rng=Math.random){const d=s.duel;if(!d||d.done)return null;const O=duelOdds(s);const L_=d.log[d.log.length-1];let ea=pick(d.atk,rng),eb=pick(d.blk,rng);if(L_&&d.mode==='repeat'&&rng()<0.65)ea=L_.ea;if(L_&&d.mode==='mirror'&&rng()<0.6)eb=L_.a;if(d.mode==='shift'&&d.round>0&&d.round%4===0){d.atk=habit(rng);d.blk=habit(rng);}d.seen.atk[ea]++;d.seen.blk[eb]++;d.round++;
  const r={a,b,ea,eb,hit:false,ehit:false};
  if(a!==eb&&rng()>=O.edodge){r.crit=rng()<O.crit;r.hit=Math.round(O.dmg*(r.crit?2:1));d.ehp-=r.hit;}
  if(ea!==b&&rng()>=O.dodge){r.ecrit=rng()<O.ecrit;r.ehit=Math.round(O.edmg*(r.ecrit?1.8:1));d.hp-=r.ehit;}
@@ -140,7 +140,7 @@ function locReq(s,l){return Math.round(LX(l).req*rbMul(s));}
 function locThreat(s,l){return Math.round(LX(l).threat*rbMul(s));}
 function unlocked(s,l){if(l>=BASE_N)return !!s.won&&s.cleared.includes(l-1);return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroPower(s)>=locReq(s,l));}
 // --- energy & time
-function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*20;}
+function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*20+Math.floor(A(s,'end')/2);}
 // early game: energy refills faster so the first minutes have little waiting
 function regenSec(s){return (s.runs<15?4:s.runs<30?7:9)*Math.pow(0.9,s.regenUp)*(1-skinB(s,'regen')/100)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
 function tickEnergy(s,now=Date.now()){if(s.hurtMs>0&&!s.hurtAt)s.hurtAt=now;if(s.hurtAt&&now>=s.hurtAt+s.hurtMs){s.hurtMs=0;s.hurtAt=0;}if(!s.energyT){s.energyT=now;return;}const per=regenSec(s)*1000;
@@ -327,7 +327,7 @@ const DIVE={A:3,N:10,cost:14,ITEMS:{5:1,7:2,10:3},ROPE:0.6,TORCH:0.25};
 // step policies: success prob shift, depth gained on success, extra energy
 const DSTEP={safe:{ru:'Осторожно',ic:'🟢',dp:0.045,m:1,e:1},norm:{ru:'Обычно',ic:'⬇️',dp:0,m:1,e:0},bold:{ru:'Смело',ic:'🔥',dp:0,m:2,e:0,f:1}};
 // bonuses have diminishing returns: total shift never exceeds +4%
-function diveP(s){const raw=s.lensUp*0.005+(s.perks.luck||0)*0.01+0.01*((syn(s,'shadow')||0)+(syn(s,'luck')||0));return 0.48+0.025*(1-Math.exp(-raw/0.04));}
+function diveP(s){const raw=s.lensUp*0.005+(s.perks.luck||0)*0.01+0.01*((syn(s,'shadow')||0)+(syn(s,'luck')||0));return 0.48+0.025*(1-Math.exp(-raw/0.04))+Math.min(0.01,0.0005*A(s,'agi'));}
 function ruinP(p,a,N){if(a<=0)return 1;if(a>=N)return 0;const q=1-p;if(Math.abs(p-q)<1e-9)return 1-a/N;const r=q/p;return(Math.pow(r,a)-Math.pow(r,N))/(1-Math.pow(r,N));}
 // exact chance to reach the bottom from x with a fixed policy (and optional rope = one setback ignored)
 function divePolicyP(p,x,N,pol,rope){const m=DSTEP[pol].m,fl=DSTEP[pol].f||1;const P=y=>Math.max(0.05,Math.min(0.95,p+stepShift(pol,y,0)));const at=(f,y)=>f[Math.max(0,Math.min(N,y))];let f=new Array(N+1).fill(0);f[N]=1;

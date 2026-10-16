@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="hero-art.css"><style>body{background:#14161c;color:#ddd;font:13px sans-serif;margin:12px}.row{display:flex;gap:10px;align-items:center;margin:6px 0}h3{margin:8px 0 2px}</style>
+<body><h3>Avatar: low / mid / high / top / abyss</h3><div class="row" id="av"></div><h3>Skins</h3><div class="row" id="sk"></div><h3>Icons by rarity (rows = slots, last cols = set, tier 8, tier 10, tier 13)</h3><div id="ic"></div>
+<script src="hero-art.js"></script><script>
+const H=HeroArt,SL=['weapon','armor','helm','gloves','boots','charm'],tags=['fire','ice','luck','shadow','crit','fire'];
+const mk=(slot,r,o)=>Object.assign({slot,r,id:SL.indexOf(slot)*7+r,power:10,lvl:0,tag:tags[r]},o||{});
+const kit=(r,o)=>{const e={};SL.forEach(s=>e[s]=mk(s,r,o));return e};
+av.innerHTML=[[{weapon:mk('weapon',0)},{power:10}],[kit(2,{lvl:3}),{power:120}],[kit(4,{set:'gambler'}),{power:700}],[kit(4,{tier:9,set:'monty'}),{power:3000}],[kit(4,{tier:13,tag:'fire'}),{power:90000}]].map(a=>H.renderAvatar(a[0],a[1])).join('');
+sk.innerHTML=H.skinList.map(s=>'<div>'+H.renderAvatar({},{skin:s.k,size:100})+'<br>'+s.ru+(s.bonus?' +'+s.bonus[1]+'% '+s.bonus[0]:'')+'</div>').join('');
+ic.innerHTML=SL.map(s=>'<div class="row">'+[0,1,2,3,4].map(r=>H.renderItemIcon(mk(s,r,{lvl:r*2}))).join('')+H.renderItemIcon(mk(s,3,{set:'forest'}))+[8,10,13].map(t=>H.renderItemIcon(mk(s,4,{tier:t,lvl:10}))).join('')+'</div>').join('');
+</script>
