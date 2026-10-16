@@ -28,4 +28,9 @@ for(const sd of[1,2,3])console.log(JSON.stringify(bot(sd)));
 assert(Math.abs(G.posterior([])-0.25)<1e-9&&Math.abs(G.posterior([true])-0.2/(0.2+0.225))<1e-9,'bayes');
 assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3)===1&&G.expTries(6)>1/G.enhP(6),'markov');
 {const v4=Object.assign(G.newState(),{ver:4,gold:77});delete v4.stats;const l=G.load(JSON.stringify(v4));assert(l&&l.gold===77&&l.stats.rolls.length===5,'mig4');}
+{let sm=0;for(let k=0;k<30;k++)sm+=G.poissonP(k,2.5);assert(Math.abs(sm-1)<1e-9,'poisson');
+ let m=0;for(let i=0;i<20000;i++)m+=G.poissonDraw(1.7,Math.random);assert(Math.abs(m/20000-1.7)<0.05,'pdraw');
+ assert(G.kellyOpt(0.6)>0.199&&G.kellyGrowth(0.6,0.2)>G.kellyGrowth(0.6,0.5),'kelly');
+ const o=G.newState();o.unl.offline=1;o.energy=30;o.lastSeen=1;const ev=G.offline(o,3*3600e3);assert(ev&&ev.runs>0&&ev.events.length===2,'offline');
+ const w=G.newState();w.won=true;w.gold=999;w.unl.rebirth=1;assert(G.rebirth(w,'luck')&&w.gold===0&&w.rebirths===1&&w.perks.luck===1&&w.unl.rebirth,'rebirth');}
 console.log('TESTS OK');

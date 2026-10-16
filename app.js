@@ -2,7 +2,7 @@ const KEY='probIdleSave';const $=id=>document.getElementById(id);
 let S=G.load(localStorage.getItem(KEY));let migrated=false;
 if(!S){migrated=!!(localStorage.getItem(KEY)||localStorage.getItem('probIdleMvp1'));localStorage.removeItem('probIdleMvp1');S=G.newState();}
 G.tickEnergy(S);
-const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const save=()=>{S.lastSeen=Date.now();localStorage.setItem(KEY,JSON.stringify(S));};
 const pct=x=>(x*100).toFixed(x<0.01&&x>0?2:1)+'%';
 const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e4?(n/1e3).toFixed(1)+'k':Math.round(n)+'';
 const AFRU=Object.fromEntries(G.AFFIXES.map(a=>[a.k,a]));
@@ -63,6 +63,7 @@ function render(){header();const U=S.unl;$('win').hidden=!S.won;
  $('hero').innerHTML=`<div class="herobox">${ART.hero()}<div><b>Герой, ур. ${S.lvl}</b><br>⚔️ ${G.heroDmg(S)} · ❤️ ${G.heroHp(S)}<br><span title="Сила = урон + HP/4; открывает локации">💪 Сила ${G.heroPower(S)}</span><br><small>Походов ${S.runs}${S.deaths?`, гибелей ${S.deaths}`:''}</small></div>
  ${(S.weapon||S.armor||S.charm)?`<div class="slots">${slot('weapon')}${slot('armor')}${slot('charm')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
  (U.pity&&S.shards>=G.SHARDS_FOR_PITY?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
+ renderTabs();renderKelly();renderRebirth();$('snd').textContent=S.sound?'🔊':'🔇';
  renderRun();renderChips();renderMonty();renderMimic();renderStats();renderSets();
  $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];renderGuides();renderHowto();
  $('locCard').hidden=!U.locs;
@@ -112,17 +113,50 @@ function renderGuides(){const gs=S.monty.guides;$('guidesCard').hidden=!gs;if(!g
  '<div class="hint">Подсказка (3 сундука): у честного смена выигрывает ~67%, у случайного ~50% (раунды, где он открыл приз, не считаются), ненадёжный — между. Ошибка сбрасывает статистику проводника.</div>';}
 function renderHowto(){$('howto').innerHTML=['start',...G.UNLOCKS.map(u=>u.k).filter(k=>S.unl[k])].map(k=>`<p><b>${HELP[k][0]}.</b> ${HELP[k][1]}</p>`).join('')+'<p class="hint">Остальное откроется по мере игры.</p>';}
 function afterRun(){if(!G.maybeMonty(S))G.maybeMimic(S);}
+const TABS=[['run','⚔️ Поход',()=>1],['hero','🧍 Герой',()=>1],['shop','🛒 Лавка',U=>U.shop],['games','🎲 Игры',U=>U.variants||U.kelly],['stats','📈 Итоги',U=>U.stats||U.sets]];
+function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.toggle('tabs',on);$('tabs').hidden=!on;
+ const av=TABS.filter(t=>t[2](U));if(!av.find(t=>t[0]===S.tab))S.tab='run';
+ const better=S.inv.some(i=>!S[i.slot]||G.score(i)>G.score(S[i.slot]));
+ $('tabs').innerHTML=av.map(t=>`<button data-tab="${t[0]}" class="${S.tab===t[0]?'sel':''}">${t[1]}${t[0]==='hero'&&better&&S.tab!=='hero'?'<span class="dot"></span>':''}</button>`).join('');
+ document.querySelectorAll('main [data-tab]').forEach(el=>el.classList.toggle('off',on&&el.dataset.tab!==S.tab));}
+let AC=null;function beep(f,d=0.12,v=0.05){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
+ o.frequency.value=f;o.type='sine';g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
+function lootSound(items){if(!items.length)return;const r=Math.max(...items.map(i=>i.r));beep(330+r*110,0.15);if(r===4)setTimeout(()=>beep(880,0.3),150);}
+function renderKelly(){const U=S.unl;$('kellyCard').hidden=!U.kelly;if(!U.kelly)return;const K=S.kelly;const f=S.kf??0.1;const st=Math.floor(S.gold*f);
+ $('kelly').innerHTML=`<div class="kv"><span>Шанс выигрыша монеты</span><b>${pct(K.p)}</b><span>Выплата</span><b>1:1</b><span>Жетоны ставок</span><b>${K.tokens}/10</b>
+ <span>Доля золота</span><b>${pct(f)} = ${fmt(st)}💰</b><span>Ожидаемый лог-рост за ставку</span><b class="${G.kellyGrowth(K.p,f)>0?'good':'bad'}">${(G.kellyGrowth(K.p,f)*100).toFixed(2)}%</b>
+ <span>Итог ставок</span><b>${K.bets} ставок, ${K.profit>=0?'+':''}${fmt(K.profit)}💰</b></div>
+ <input type="range" id="kf" class="slider" min="0" max="0.9" step="0.01" value="${f}"><div class="row"><button id="kbet" class="big" ${K.tokens<1||st<1?'disabled':''}>🪙 Поставить</button><button id="kopt" class="small">Показать оптимум Келли</button></div>
+ <div class="hint">Жетон — за каждый полностью пройденный поход. Попробуйте найти долю, при которой золото растёт быстрее всего в долгую.</div>`;}
+function renderRebirth(){const U=S.unl;$('rebirthCard').hidden=!U.rebirth;if(!U.rebirth)return;
+ const perks=Object.entries(S.perks).map(([k,v])=>`${G.PERKS.find(p=>p.k===k).ru} ×${v}`).join('<br>')||'пока нет';
+ $('rebirth').innerHTML=`<div>Перерождений: <b>${S.rebirths}</b> (добыча +${S.rebirths*25}%). Перки:<br><small>${perks}</small></div>`+
+ (S.won?`<p>Выберите постоянный перк и начните заново:</p><div class="perks">${G.PERKS.map(p=>`<button data-perk="${p.k}">${p.ru}</button>`).join('')}</div>`:'<p class="hint">Снова пройдите Бездну Удачи, чтобы переродиться ещё раз.</p>')+
+ `<div class="row"><button id="summary" class="small">📜 Итоги удачи</button></div>`;}
+function luckSummary(){const st=S.stats;const tot=st.rolls.reduce((a,b)=>a+b,0);const L=st.rolls[4],E=st.exp[4];
+ const best=[S.weapon,S.armor,S.charm,...S.inv].filter(Boolean).sort((a,b)=>b.r-a.r||G.score(b)-G.score(a))[0];
+ return['📜 Итоги удачи',`Время в игре: ${Math.round(S.playMs/60000)} мин · походов: ${S.runs} · гибелей: ${st.deaths} (ожидалось ${st.deathExp.toFixed(1)})<br>
+ Предметов: ${tot}. Легендарок: ${L} при ожидании ${E.toFixed(1)} — ${L>=E?'вам везло':'удача была скупа'} (${E?((L/E-1)*100).toFixed(0):0}%).<br>
+ Эпиков: ${st.rolls[3]} / ${st.exp[3].toFixed(1)}. Сундуки: смена ${S.monty.stats.switch[0]}/${S.monty.stats.switch[1]}, остаться ${S.monty.stats.stay[0]}/${S.monty.stats.stay[1]}.<br>
+ ${best?`Лучшая вещь: <span class="r-${best.rarity}">${best.name}</span>`:''}`];}
+function offlineReport(ev){if(!ev)return;const ru={merchant:'🧳 Торговец',boss:'👹 Босс'};
+ let t=`Вас не было ${ev.hours.toFixed(1)} ч. Герой сходил в ${ev.runs} безопасных похода(ов), принёс ${ev.items.length} предм.${ev.sold?`, автопродажа +${fmt(ev.sold)}💰`:''}.<br>`;
+ for(const e of ev.events)t+=`${ru[e.type]}: ${e.n} раз (в среднем ожидалось ${e.lt.toFixed(2)}, шанс ровно ${e.n} = ${pct(e.p)})<br>`;
+ if(ev.merchantGold)t+=`Торговец скупил хлам: +${fmt(ev.merchantGold)}💰<br>`;if(ev.boss)t+=`Побеждён босс! Трофеи: ${ev.boss.map(i=>`<span class="r-${i.rarity}">${i.name}</span>`).join(', ')}<br>`;
+ if(ev.bossLost)t+=`Босс отбился ${ev.bossLost} раз(а) — без потерь.<br>`;MQ.push(['🌙 Пока вас не было',t]);showModal();}
 function showReport(h){$('reportCard').hidden=false;$('report').innerHTML=h;}
-function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;
+function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;lootSound(r.drops);if(r.died)beep(140,0.4);
  let h=S.unl.stages?`<p><b>Этап ${r.stage}</b></p>`:'';
  if(r.chips.length)h+=`<p class="hint">Фишки: ${r.chips.map(x=>`<span class="r-${G.RARS[G.CHIP_T[x.t].r]}">${G.CHIP_T[x.t].ru} ${x.k}/${x.n}${x.k&&!x.paid?' — ниже порога':''}</span>`).join(', ')}</p>`;
+ if(r.revived)h+=`<p class="good">✨ Второй шанс спас героя от гибели!</p>`;
  if(r.died)h+=`<p class="bad">☠️ Герой пал (риск был ${pct(r.dc)}). Потеряно предметов: ${r.lost}.</p>`;
  h+=r.drops.map((x,i)=>itemHtml(x,S[x.slot]&&G.score(x)>G.score(S[x.slot])||!S[x.slot]?'<span class="badge better">▲</span>':'',i+1)).join('');
  if(r.trophy){const t=r.trophy,st=G.SETS[t.loc];h+=t.dup?`<p>🏺 Трофей «${st.ru}» №${t.k+1} — дубликат (+${t.gold}💰).</p>`:`<p class="good">🏺 Новый трофей «${st.ru}» №${t.k+1}!${t.done?' Коллекция собрана — бонус активен!':''}</p>`;}
  if(r.shards)h+=`<p>💎 +${r.shards} оск.</p>`;if(S.lvl>lvl0)h+=`<p class="good">⭐ Новый уровень: ${S.lvl}!</p>`;
  if(r.bank){h+=`<p class="good">🏠 ${r.finished&&S.unl.stages?'Локация пройдена до конца! ':''}Добыча сохранена: ${r.bank.items.length} предм. (${fmt(r.bank.gold)}💰)${r.bank.sold?`, автопродажа +${fmt(r.bank.sold)}💰`:''}.</p>`;afterRun();}
- showReport(h);unlocks();render();}
+ showReport(h);unlocks();checkWin();render();}
 document.addEventListener('change',e=>{if(e.target.id==='useScroll'){S.useScroll=e.target.checked;render();}});
+document.addEventListener('input',e=>{if(e.target.id==='kf'){S.kf=+e.target.value;const y=window.scrollY;renderKelly();const k=$('kf');if(k)k.focus();}});
 document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){MQ.push(TIPS[tp.dataset.tip]);showModal();return;}
  const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
  if(d.loc!==undefined){S.loc=+d.loc;$('eval').innerHTML='';}
@@ -132,6 +166,12 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='mclose')G.montyClear(S);
  else if(b.id==='knock'){G.knock(S);}
  else if(b.id==='mopen'||b.id==='mleave'){const r=G.resolveMimic(S,b.id==='mopen');mimicReport(r);}
+ else if(d.tab){S.tab=d.tab;window.scrollTo&&window.scrollTo(0,0);}
+ else if(b.id==='snd'){S.sound=S.sound?0:1;beep(660);}
+ else if(b.id==='kbet'){const r=G.kellyBet(S,S.kf??0.1);if(r){beep(r.win?880:200);showReport(`<p class="${r.win?'good':'bad'}">🪙 ${r.win?'Выигрыш':'Проигрыш'}: ${r.win?'+':'−'}${fmt(r.stake)}💰 (шанс был ${pct(r.p)}, ваша доля ${pct(r.f)}, Келли: ${pct(r.opt)})</p>`);}}
+ else if(b.id==='kopt'){S.kf=Math.round(G.kellyOpt(S.kelly.p)*100)/100;}
+ else if(d.perk){if(confirm('Переродиться? Прогресс текущего пути сбросится.')){G.rebirth(S,d.perk);$('reportCard').hidden=true;}}
+ else if(b.id==='summary'){MQ.push(luckSummary());showModal();return;}
  else if(b.id==='autosell'){S.autoSell=(S.autoSell+1)%4;}
  else if(d.guess!==undefined){const r=G.guessGuide(S,+d.guess,d.gt);showReport(r==='ok'?'<p class="good">Верно! +15 💎</p>':r==='few'?'<p>Мало данных: нужно хотя бы 5 раундов с этим проводником.</p>':'<p class="bad">Неверно. Статистика проводника сброшена.</p>');}
  else if(d.eq)G.equip(S,+d.eq);else if(d.dis)G.dismantle(S,+d.dis);else if(d.buy)G.buy(S,d.buy);else if(d.up){const r=G.upgradeItem(S,d.up,!!S.useScroll);if(r&&r!=='ok')showReport({fail:'<p>Улучшение не удалось (уровень сохранён).</p>',down:'<p class="bad">Провал! Уровень понижен на 1.</p>',saved:'<p>Провал, но свиток защиты спас уровень.</p>'}[r]);}
@@ -143,7 +183,10 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='autoeq')G.equipBest(S);
  else if(b.id==='disAll'){S.inv.filter(i=>S[i.slot]&&G.score(i)<=G.score(S[i.slot])).map(i=>i.id).forEach(id=>G.dismantle(S,id));}
  else if(b.id==='reset'){if(confirm('Сбросить весь прогресс?')){S=G.newState();G.tickEnergy(S);$('reportCard').hidden=true;$('eval').innerHTML='';popup('start');}}
- else return;unlocks();render();});
-function tick(){if(S.run&&!S.run.waiting&&Date.now()>=S.run.endAt){stage();return;}const e=S.energy;header();if(S.energy!==e&&!S.run)render();else tickProg();}
+ else return;unlocks();checkWin();render();});
+function checkWin(){if(S.won&&!S.summarySeen){S.summarySeen=1;MQ.push(luckSummary());showModal();}}
+let lastT=Date.now(),saveT=0;
+function tick(){const n=Date.now();if(!document.hidden)S.playMs+=Math.min(1000,n-lastT);lastT=n;if(n-saveT>5000){saveT=n;save();}if(S.run&&!S.run.waiting&&Date.now()>=S.run.endAt){stage();return;}const e=S.energy;header();if(S.energy!==e&&!S.run)render();else tickProg();}
 setInterval(tick,250);
-render();if(!S.runs&&!S.run)popup('start');if(migrated)showReport('<p>Игра сильно обновилась — старое сохранение несовместимо, начинаем заново.</p>');
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){G.tickEnergy(S);offlineReport(G.offline(S));render();}else save();});
+const offEv=G.offline(S);render();if(!S.runs&&!S.run&&!S.rebirths)popup('start');offlineReport(offEv);if(migrated)showReport('<p>Игра сильно обновилась — старое сохранение несовместимо, начинаем заново.</p>');
