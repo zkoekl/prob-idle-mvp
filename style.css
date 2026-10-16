@@ -196,3 +196,8 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .duelhp{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0}.duelhp .bar{height:8px}
 .dz{display:grid;grid-template-columns:1fr 1fr;gap:10px}.dz>div{display:flex;flex-direction:column;gap:4px}
 .dl{font-size:.8rem;opacity:.85}.attr{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.bossh{display:flex;gap:10px;align-items:center;margin-bottom:6px;padding:8px;border:1px solid #7a2020;border-radius:10px;background:linear-gradient(135deg,#2a0d0d,#140808)}.bossh img{width:72px;height:72px;object-fit:cover;border-radius:8px}.bossh i{opacity:.8;font-size:.85rem}
+#tut{position:fixed;inset:0;z-index:60;background:rgba(5,6,10,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.tutbox{max-width:420px;background:var(--card,#1d2129);border:1px solid var(--gold,#c9a24a);border-radius:14px;padding:16px;box-shadow:0 10px 40px #000a}
+.tutbox h3{margin:0 0 8px}.tutdots{display:flex;gap:6px;margin:10px 0}.tutdots i{width:8px;height:8px;border-radius:50%;background:#555}.tutdots i.on{background:var(--gold,#c9a24a)}
+.tutq{margin-left:6px;width:24px;height:24px;padding:0;border-radius:50%}
