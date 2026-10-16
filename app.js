@@ -39,6 +39,11 @@ function quickbar(){if(S.runs<3)return'';const a=S.arm||(S.arm={});const ks=['po
  const row=k=>{const C=G.CONS[k],n=S.cons[k]||0,on=a[k]&&n>0;return `<div class="qb ${on?'on':''}"><button class="small ${on?'sel':''}" data-arm="${k}" ${n?'':'disabled'}>${C.ic} ${n}</button><span><b>${C.ru}</b> <small>${eff[k]||C.d}</small></span><span class="qbuy">${C.g?`<button class="small" data-cbuy="${k}" data-how="g" ${S.gold<pr(k).g?'disabled':''}>${fmt(pr(k).g)}💰</button>`:''}<button class="small" data-cbuy="${k}" data-how="m" ${S.mats<pr(k).m?'disabled':''}>${fmt(pr(k).m)}🔩</button></span></div>`;};
  const other=G.CONS_K.filter(k=>!ks.includes(k)&&(S.cons[k]||0)>0).map(k=>`${G.CONS[k].ic}${S.cons[k]}`).join(' ');
  return `<details class="qbar" ${ks.some(k=>a[k])?'open':''}><summary>🎒 Расходники на поход ${ks.map(k=>G.CONS[k].ic+(S.cons[k]||0)).join(' ')}${other?' · '+other:''}</summary>${ks.map(row).join('')}<small class="hint">Нажмите на значок, чтобы взять с собой (тратится при старте). Расходники иногда находятся среди переплавленной мелочи (5%), их можно купить или создать из 🔩.</small></details>`;}
+function routeHtml(r){const L=G.LOCS[r.loc];const route=r.route||[];const opts=route[r.stage]||['fight'];const pr=G.nodeProbs(S).map(([k,p])=>`${G.NODES[k].ic} ${pct(p)}`).join(' · ');
+ const nodes=route.map((o,i)=>{const done=i<r.stage;const t=done?(r.path||[])[i]||'fight':null;return `<div class="node ${done?'done':i===r.stage?'next':''}">${done?G.NODES[t].ic:i===r.stage?o.map(k=>G.NODES[k].ic).join('/'):'?'}</div>`;}).join('<i class="link"></i>');
+ return `<div class="route"><div class="routeline">🏠<i class="link"></i>${nodes}<i class="link"></i>🏁</div><small>Дальше по маршруту «?»: ${pr}</small></div>
+ <div class="row nodes">${opts.map((k,i)=>`<button class="big nodebtn" data-node="${i}"><b>${G.NODES[k].ic} ${G.NODES[k].ru}</b><small>${G.NODES[k].d}</small></button>`).join('')}</div>`;}
+function nodeEvent(t){if(t==='chest'){G.maybeMonty(S,Math.random,true);}else if(t==='mimic'){G.maybeMimic(S,Math.random,true);}else if(t==='merchant'){G.maybeSecretary(S,Math.random,true);}else if(t==='shaft'){S.diveFree=(S.diveFree||0)+1;toast('🕳️ Шахта: бесплатное погружение ждёт в «Испытаниях»');}}
 function lootMini(){const rc=$('reportCard');const off=()=>{rc.classList.remove('compact');return'';};if(!S.unl.shop||S.run)return off();const fr=S.inv.filter(i=>i.fresh).slice(0,4);const better=S.inv.some(isBetter);if(!fr.length&&!better)return off();if(fr.length)rc.classList.add('compact');else rc.classList.remove('compact');
  return `<div class="lootmini"><b>Последняя добыча</b>${fr.map(it=>itemHtml(it,`<button class="small" data-eq="${it.id}">Надеть</button>${!it.kept?`<button class="small" data-dis="${it.id}">Продать ${fmt(it.value)}💰</button>`:''}`)).join('')}<div class="row"><button id="autoeq3" class="${better?'nudge':''}">Надеть лучшее</button><small class="hint">Всё снаряжение во вкладке «Герой».</small></div></div>`;}
 function renderRun(){const r=S.run;const L=G.LOCS[r?r.loc:S.loc];let h;
@@ -54,7 +59,7 @@ ${(()=>{const e=G.continueEV(S);return `<div class="evbox"><div><span>На ко�
   <div><span>Ожидание «Дальше»</span><b class="${e.ev>=0?'good':'bad'}">${e.ev>=0?'+':''}${fmt(Math.round(e.ev))}💰</b></div><div><span>«Домой»</span><b>0 (сохраните ${fmt(e.carried)}💰)</b></div>
   <small>${(1-e.dc).toFixed(2)}·${fmt(e.gain)} − ${e.dc.toFixed(2)}·${fmt(e.carried+e.pen)} = ${fmt(Math.round(e.ev))}. ${e.ev>=0?'Математически выгоднее идти дальше.':'Математически выгоднее вернуться.'}${r.loc?` Гибель: лечение ${Math.round(G.healMs(S,r.loc)/1000)}с (или ${fmt(G.healCost(S,r.loc))}💰), −${G.deathEnergy(r.loc)}⚡, 35% шанс потерять уровень улучшения вещи (свиток защищает).`:' В первой локации гибель стоит только добычи.'}</small></div>`;})()}
   ${chancesBar(G.rarChances(S,r.loc,r.stage))}
-  <div class="row"><button id="cont" class="big">➡️ Дальше</button><button id="ret" class="ok">🏠 Домой с добычей</button></div>`;}
+  ${routeHtml(r)}<div class="row"><button id="ret" class="ok">🏠 Домой с добычей</button></div>`;}
  $('run').innerHTML=h+lootMini();tickProg();}
 function tickProg(){const r=S.run;if(!r||r.waiting||!$('progbar'))return;const tot=G.stageMs(S,r.loc);const left=Math.max(0,r.endAt-Date.now());
  const w=(100-left/tot*100);$('progbar').style.width=w+'%';$('walker').style.left=`calc(${w}% - 10px)`;$('progtxt').textContent=`осталось ${(left/1000).toFixed(1)}с`;}
@@ -156,7 +161,7 @@ function renderDive(){$('diveCard').hidden=!S.unl.dive;if(!S.unl.dive)return;con
  <span>В мешке сейчас</span><b>${fmt(potG)}💰${potI.length?' + '+potI.map(i=>RIC[i.r]).join(''):''}</b><span>На дне будет</span><b>${fmt(G.diveCash(S,D.N))}💰 + ${Object.values(D.ITEMS).map(r=>RIC[r]).join('')}</b></div>
  ${d?`<div class="row"><button data-dbuy="rope" class="small" ${d.rope||(S.gold<G.ropeCost(S)&&!(S.cons.rope>0))?'disabled':''}>🪢 Верёвка ${d.rope?'✔':S.cons.rope>0?'(есть '+S.cons.rope+')':fmt(G.ropeCost(S))+'💰'}</button><button data-dbuy="torch" class="small" ${d.nextT!==null||(S.gold<G.torchCost(S)&&!(S.cons.torch>0))?'disabled':''}>🔦 Факел ${S.cons.torch>0?'(есть '+S.cons.torch+')':fmt(G.torchCost(S))+'💰'}</button></div><small>Верёвка спасает от одного провала. Факел показывает, легче или труднее следующий шаг (±10%).</small>`:''}
  </div></div>
- ${d?`<div class="dpol">${pol}</div><div class="row"><button id="dcash" class="ok big" ${potG<=0&&!potI.length?'disabled':''}>💰 Забрать и выйти (${fmt(potG)}💰${potI.length?' + '+potI.length+' предм.':''})</button></div>`:`<div class="row"><button id="dstart" class="big" ${S.energy<D.cost?'disabled':''}>⛏ Спуститься (⚡${D.cost})</button></div>`}
+ ${d?`<div class="dpol">${pol}</div><div class="row"><button id="dcash" class="ok big" ${potG<=0&&!potI.length?'disabled':''}>💰 Забрать и выйти (${fmt(potG)}💰${potI.length?' + '+potI.length+' предм.':''})</button></div>`:`<div class="row"><button id="dstart" class="big" ${S.energy<D.cost&&!(S.diveFree>0)?'disabled':''}>⛏ Спуститься (${S.diveFree>0?"бесплатно: шахта":"⚡"+D.cost})</button></div>`}
  <div class="hint">Найденное на новой глубине сразу кладётся в мешок, даже если потом откинет назад. Теги 🌑 Тень и 🍀 Удача на снаряжении: +1% к шагу за каждую вещь. «До дна так» считается точно (задача о разорении игрока), если всё время ходить выбранным шагом. Погружений: ${S.diveStats.n}, до дна: ${S.diveStats.top}, разорений: ${S.diveStats.ruin}.</div>`;}
 let EQCH=null;
 function eqChoiceHtml(){if(!EQCH)return'';return `<div class="eqchoice"><b>«Надеть лучшее» сломает бонус сета: ${EQCH.lost.map(g=>`<span class="r-set">${g.ru}</span>`).join(', ')}</b><br><small>Сила это только урон и HP. Бонусы сета (золото, удача, риск, особое правило) в силу не входят.</small><div class="row"><button id="eqBest">💪 Макс. сила (${EQCH.pb})</button><button id="eqKeep" class="ok">🟩 Сохранить сет (${EQCH.pk})</button></div></div>`;}
@@ -176,12 +181,16 @@ function synHtml(){if(!S.unl.synergy)return'';const tc=G.tagCount(S);const slots
 function celebrate(){if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;document.body.classList.remove('shake');void document.body.offsetWidth;document.body.classList.add('shake');
  const cols=['#f08a00','#ffd166','#8e44c9','#2f7fd8','#3fa34d'];for(let i=0;i<36;i++){const e=document.createElement('i');e.className='confetti';e.style.left=Math.random()*100+'vw';
   e.style.background=cols[i%5];e.style.animationDelay=Math.random()*0.3+'s';e.style.setProperty('--dx',(Math.random()*120-60)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),2000);}}
-const TABS=[['run','⚔️ Поход',()=>1],['hero','🧍 Герой',()=>1],['shop','🛒 Лавка',U=>U.shop],['games','🎲 Игры',U=>U.variants||U.kelly],['stats','📈 Итоги',U=>U.stats||U.sets]];
+const TABS=[['run','⚔️','Поход',()=>1],['hero','🛡️','Снаряжение',()=>1],['games','🎲','Испытания',U=>U.monty||U.deck||U.dive||U.kelly],['shop','🪙','Лавка',U=>U.shop]];
+const GAMES=[['guidesCard','🎁','Сундуки',U=>U.monty&&S.monty.guides],['diveCard','🕳️','Погружение',U=>U.dive],['kellyCard','🪙','Монета',U=>U.kelly],['deckCard','🃏','Колода',U=>U.deck]];
 function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.toggle('tabs',on);$('tabs').hidden=!on;
- const av=TABS.filter(t=>t[2](U));if(!av.find(t=>t[0]===S.tab))S.tab='run';
+ const av=TABS.filter(t=>t[3](U));if(S.tab!=='stats'&&!av.find(t=>t[0]===S.tab))S.tab='run';$('menu').hidden=!on;$('menu').classList.toggle('sel',S.tab==='stats');
  const better=S.inv.some(isBetter);
- $('tabs').innerHTML=av.map(t=>`<button data-tab="${t[0]}" class="${S.tab===t[0]?'sel':''}">${t[1]}${t[0]==='hero'&&better&&S.tab!=='hero'?'<span class="dot"></span>':''}</button>`).join('');
- document.querySelectorAll('main [data-tab]').forEach(el=>el.classList.toggle('off',on&&el.dataset.tab!==S.tab));}
+ $('tabs').innerHTML=av.map(t=>`<button data-tab="${t[0]}" class="${S.tab===t[0]?'sel':''}"><i>${t[1]}</i><span>${t[2]}</span>${t[0]==='hero'&&better&&S.tab!=='hero'?'<span class="dot"></span>':''}</button>`).join('');
+ const gs=GAMES.filter(g=>g[3](U));if(!gs.find(g=>g[0]===S.game))S.game=gs.length?gs[0][0]:null;
+ if(S.tab==='games')$('gameTiles').innerHTML=gs.map(g=>`<button class="tile ${S.game===g[0]?'sel':''}" data-game="${g[0]}"><i>${g[1]}</i><span>${g[2]}</span></button>`).join('');
+ document.querySelectorAll('main [data-tab]').forEach(el=>el.classList.toggle('off',on&&el.dataset.tab!==S.tab||(S.tab==='games'&&el.id&&GAMES.some(g=>g[0]===el.id)&&el.id!==S.game)));
+ const ev=['montyCard','secCard','mimicCard'].some(k=>!$(k).hidden);document.body.classList.toggle('evopen',ev);}
 let AC=null;function beep(f,d=0.12,v=0.05){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
  o.frequency.value=f;o.type='sine';g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
 function lootSound(items){if(!items.length)return;const r=Math.max(...items.map(i=>i.r));beep(330+r*110,0.15);if(r===4)setTimeout(()=>beep(880,0.3),150);}
@@ -251,10 +260,13 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='pity'){const it=G.craftPity(S);if(it)showReport('<p>Создано:</p>'+itemHtml(it));}
  else if(b.id==='go'){G.startRun(S);}
  else if(b.id==='heal'){G.healNow(S);}
+ else if(b.id==='menu'){S.tab=S.tab==='stats'?'run':'stats';}
+ else if(d.game){S.game=d.game;}
  else if(d.arm){S.arm=S.arm||{};S.arm[d.arm]=!S.arm[d.arm];if(d.arm==='bait'&&!S.arm.baitTag)S.arm.baitTag='fire';}
  else if(d.cbuy){G.buyCons(S,d.cbuy,d.how);}
  else if(d.peek!==undefined){const p=S.monty.pending;if(p&&S.cons.peek>0&&p.peekI===undefined){S.cons.peek--;const c=[...Array(p.n).keys()].filter(i=>i!==p.pick&&!p.opened.includes(i));p.peekI=c[Math.floor(Math.random()*c.length)];}}
  else if(b.id==='cont'){G.continueRun(S);}
+ else if(d.node!==undefined){const r=S.run;const t=((r.route&&r.route[r.stage])||['fight'])[+d.node]||'fight';G.continueRun(S,Date.now(),+d.node);nodeEvent(t);}
  else if(b.id==='ret'){if(!S.run)return;const r=G.bank(S);showReport(`<p class="good">🏠 Вернулись. Сохранено ${r.items.length} предм. (${fmt(r.gold)}💰)${r.sold?`, автопродажа +${fmt(r.sold)}💰`:''}.</p>`+r.items.slice(-6).map((x,i)=>itemHtml(x,'',i+1)).join('')+cardHtml(afterRun()));}
  else if(b.id==='evalb'){runEval();return;}
  else if(b.id==='autoeq'||b.id==='autoeq2'||b.id==='autoeq3'){const ch=G.equipBest(S);if(b.id==='autoeq2')b.remove();if(ch){EQCH=ch;S.tab='hero';}}

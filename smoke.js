@@ -9,13 +9,13 @@ const firstView=['shopCard','chipCard','locCard','montyCard','guidesCard'].filte
 const log=[];
 for(let i=0;i<900;i++){c('#mok');c('#mok');c('#mok');if(vis('diveCard')){c('#dstart');c('[data-dpol=norm]');c('[data-dbuy=rope]');c('[data-dbuy=torch]');c('[data-dpol=bold]');c('[data-dpol=safe]');c('#dcash');}D.querySelectorAll('h2.coll')[1]&&i==5&&D.querySelectorAll('h2.coll')[1].click();if(vis('secCard')){c(i%3?'#secPass':'#secTake');}if(vis('mimicCard')){c('#knock');c(i%2?'#mopen':'#mleave');}c('#autosell');c('[data-keep]');c('[data-up="weapon"]');
  if(vis('montyCard')){c('[data-door="0"]');c('[data-door="1"]');c('[data-door="2"]');c('#mclose');}
- if(D.getElementById('cont'))(S=>S.run.stage<5?c('#cont'):c('#ret'))(W.__S());
- c('#go');T+=6000;W.__tick();W.__tick();
+ if(D.querySelector('[data-node]'))(S=>S.run.stage<5?c('[data-node]'):c('#ret'))(W.__S());
+ c('#heal');if(W.__S().hurtMs>0)W.__S().gold+=5000;c('#heal');c('#go');T+=6000;W.__tick();W.__tick();
  if(i%3==0){c('#autoeq');c('#disAll');c('[data-buy="hp"]');c('[data-buy="dmg"]');c('[data-buy="maxE"]');c('[data-p="0"]');}
  const u=Object.keys(W.__S().unl).join();if(log[log.length-1]!==u)log.push(u);}
-W.__S().won=true;W.__S().kelly.tokens=3;['run','hero','shop','games','stats'].forEach(t=>c(`#tabs [data-tab="${t}"]`));c('#kopt');c('#kbet');c('#snd');c('#summary');c('#mok');
+W.__S().won=true;W.__S().kelly.tokens=3;['run','hero','shop','games'].forEach(t=>c(`#tabs [data-tab="${t}"]`));c('#menu');c('#kopt');c('#kbet');c('#snd');c('#summary');c('#mok');
 W.__S().lastSeen=T-3*3600e3;W.__S().unl.offline=1;W.__off();c('#mok');unlocks:{W.__unl();c('#mok');c('#mok');}
-c('[data-perk="luck"]');if(W.__S().rebirths!==1)throw 'rebirth';
+W.__S().tab='stats';W.__R();c('[data-perk="luck"]');if(W.__S().rebirths!==1)throw 'rebirth '+W.__S().won+' '+W.__S().unl.rebirth+' '+W.__S().runs+' '+Object.keys(W.__S().unl).join();
 console.log('unlock progression:',log.slice(-1)[0],'runs',W.__S().runs,'monty',W.__S().monty.plays);
 c('#evalb');if(W.__S().unl.eval&&!D.querySelector('.hist'))throw 'no eval';
 c('.tip');c('#mok');c('[data-guess="0"][data-gt="honest"]');D.querySelector('footer button:last-child').click();if(!W.__S().unl.rebirth||W.__S().gold<1e6)throw 'debug';c('#reset');
