@@ -64,4 +64,20 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  {const s=base();let g0=s.gold,items=0;for(let i=0;i<500;i++){G.maybeMonty(s,Math.random,true);G.montyPick(s,0);G.montyFinal(s,G.montyClosed(s.monty.pending)[0]);G.montyClear(s);G.drawCard(s,2);}
   assert((s.gold-g0)/500<50*G.LOCS[2].lvl,'events bounded per run');}}
 {const o=G.newState();o.ver=9;o.inv=[{id:5,slot:'weapon',r:2,rarity:'rare',loc:0,power:3,lvl:0,affixes:[],value:1}];const l=G.load(JSON.stringify(o));assert(l.inv[0].tag&&G.TAG_K.includes(l.inv[0].tag),'retrotag');}
+// named sets
+{const s=G.newState();s.unl={shop:1,stages:1,locs:1,synergy:1,monty:1,variants:1};s.cleared=[0,1,2,3,4];assert(G.slotsOpen(s).length===6,'6 slots');
+ const g=G.GSETS[1];for(const sl of G.SLOTS)s.inv.push(G.makeSetItem(s,2,3,g,sl));
+ assert(G.deathChance(s,2,[0,0,0],0)>0,'no rule yet');G.equipBest(s,'keep');assert(G.setCount(s).guard===6,'full set equipped '+JSON.stringify(G.setCount(s)));
+ assert(G.deathChance(s,2,[0,0,0],0)===0&&G.deathChance(s,2,[0,0,0],1)>0,'safe1 rule');assert(G.aff(s,'hpPct')>=20,'2pc bonus');
+ // stronger non-set items -> equipBest asks instead of silently breaking
+ for(const sl of ['weapon','armor','helm'])s.inv.push(Object.assign(G.makeItem(s,5,4,Math.random,0,sl),{power:999}));
+ const ch=G.equipBest(s);assert(ch&&ch.lost.length&&ch.pb>ch.pk,'choice offered');assert(G.setCount(s).guard===6,'not applied yet');
+ G.equipBest(s,'best');assert((G.setCount(s).guard||0)<6,'best applied');
+ const s2=G.newState();s2.unl={locs:1};s2.cleared=[0,1,2];const g2=G.GSETS[0];const a=G.setComplete(s2,1,g2,10),b=G.setComplete(s2,1,g2,100);assert(a<b&&b<=1&&a>=0,'coupon monotone '+a+' '+b);
+ assert(G.setComplete(s2,0,g2,100)===0,'no drops below set tier');
+ const s3=G.newState();for(const sl of G.SLOTS)s3[sl]=G.makeSetItem(s3,4,4,G.GSETS[3],sl);s3.monty.guides=[{type:'random'}];assert(G.guideType(s3,{guide:0})==='honest','honest rule');
+ const s4=G.newState();for(const sl of G.SLOTS)s4[sl]=G.makeSetItem(s4,4,4,G.GSETS[2],sl);assert(G.chipTotal(s4)===s4.chips+1,'chip rule');
+ const s5=G.newState();for(const sl of G.SLOTS)s5[sl]=G.makeSetItem(s5,4,4,G.GSETS[0],sl);assert(G.pityCost(s5)===25,'pity rule');
+ let n=0,set=0;const s6=G.newState();s6.unl={locs:1};s6.cleared=[0,1,2,3];for(let i=0;i<20000;i++){const it=G.maybeSet(s6,G.makeItem(s6,3,3));if(it.set){set++;assert(G.GSETS.find(x=>x.k===it.set).loc<=3,'tier');}n++;}
+ console.log('set share of epic+ at loc3',(set/n).toFixed(3));}
 console.log('TESTS OK');

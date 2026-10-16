@@ -11,16 +11,16 @@ const usedChips=()=>S.alloc.reduce((a,b)=>a+b,0);
 const MQ=[];function popup(k){const t=HELP[k];if(t)MQ.push(t);showModal();}
 function showModal(){if(!$('modal').hidden||!MQ.length)return;const [ti,tx]=MQ.shift();$('mtext').innerHTML=`<h3>${ti}</h3><p>${tx}</p>`;$('modal').hidden=false;}
 $('mok').onclick=()=>{$('modal').hidden=true;showModal();};
-function unlocks(){G.checkUnlocks(S).forEach(popup);G.checkAch(S).forEach(x=>toast('🏅 '+x.ru));}
+function unlocks(){G.checkUnlocks(S).forEach(popup);const so=G.slotsOpen(S).length;if(so>(S.slotsN||3)){if(!S.slotsN||S.slotsN<4)popup('slots');else toast('🧩 Новая ячейка: '+G.SLOT_RU[G.slotsOpen(S)[so-1]]);S.slotsN=so;}if(!S.gsSeen&&G.GSETS.some(g=>G.ownedPieces(S,g.k).size)){S.gsSeen=1;popup('gsets');}G.checkAch(S).forEach(x=>toast('🏅 '+x.ru));}
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),3500);beep(990,0.2);}
 // --- pieces
 function afText(it){return it.affixes.map(a=>`+${a.v}${AFRU[a.k].unit} ${AFRU[a.k].ru}`).join(' · ');}
-function itemHtml(it,btns,pop){const pw=it.slot==='charm'?'':` ${it.slot==='weapon'?'⚔️':'🛡️'}${G.itemPower(it)}${it.lvl?` (+${it.lvl})`:''}`;
- return `<div class="item ${it.rarity}${pop?' pop':''}" ${pop?`style="animation-delay:${pop*0.12}s"`:''}>${ART.icon(it.slot,it.rarity,it.id)}<div class="txt">${it.fresh&&!pop?'<span class="badge">NEW</span> ':''}<span class="r-${it.rarity}">${it.name}</span> <small>${G.RAR_RU[it.rarity]}</small>${pw}<div class="af">${S.unl.synergy&&it.tag?`<span class="tag t-${it.tag}">${G.TAGS[it.tag].ic} ${G.TAGS[it.tag].ru}</span> `:''}${it.kept?'📦 ':''}${afText(it)||'без свойств'}</div></div><div class="btns">${btns||''}</div></div>`;}
+function itemHtml(it,btns,pop){const pw=it.slot==='charm'?'':` ${it.slot==='weapon'||it.slot==='gloves'?'⚔️':'🛡️'}${G.itemPower(it)}${it.lvl?` (+${it.lvl})`:''}`;
+ return `<div class="item ${it.rarity}${it.set?' setitem':''}${pop?' pop':''}" ${pop?`style="animation-delay:${pop*0.12}s"`:''}>${ART.icon(it.slot,it.rarity,it.id)}<div class="txt">${it.fresh&&!pop?'<span class="badge">NEW</span> ':''}<span class="${it.set?'r-set':'r-'+it.rarity}">${it.name}</span> <small>${it.set?'🟩 '+G.GSETS.find(g=>g.k===it.set).ru:G.RAR_RU[it.rarity]}</small>${pw}<div class="af">${S.unl.synergy&&it.tag?`<span class="tag t-${it.tag}">${G.TAGS[it.tag].ic} ${G.TAGS[it.tag].ru}</span> `:''}${it.kept?'📦 ':''}${afText(it)||'без свойств'}</div></div><div class="btns">${btns||''}</div></div>`;}
 let RC=null;function rc(){if(!RC)RC={base:G.heroPower(S),dp:new Map()};return RC;}
-function powDelta(i){const c=rc();if(c.dp.has(i.id))return c.dp.get(i.id);const eq=[S.weapon,S.armor,S.charm];eq[{weapon:0,armor:1,charm:2}[i.slot]]=i;const d=G.heroPower(S,eq)-c.base;c.dp.set(i.id,d);return d;}
+function powDelta(i){const c=rc();if(c.dp.has(i.id))return c.dp.get(i.id);const eq=G.eqOf(S);eq[G.SLOTS.indexOf(i.slot)]=i;const d=G.heroPower(S,eq)-c.base;c.dp.set(i.id,d);return d;}
 function isBetter(i){if(!S[i.slot])return true;if(!S.unl.synergy)return G.score(i)>G.score(S[i.slot]);return powDelta(i)>0;}
-function synPreview(it){if(!S.unl.synergy||!it.tag)return'';const eq=[S.weapon,S.armor,S.charm];const idx={weapon:0,armor:1,charm:2}[it.slot];const now=G.syn(S,it.tag);eq[idx]=it;const n=G.syn(S,it.tag,eq);
+function synPreview(it){if(!S.unl.synergy||!it.tag)return'';const eq=G.eqOf(S);const idx=G.SLOTS.indexOf(it.slot);const now=G.syn(S,it.tag);eq[idx]=it;const n=G.syn(S,it.tag,eq);
  const dp=powDelta(it);let t=`<span class="delta ${dp>0?'good':dp<0?'bad':''}">сила ${dp>=0?'+':''}${dp}</span>`;
  if(n>now&&n>=2)t+=` <span class="badge syn">${G.TAGS[it.tag].ic} ${n}/3: ${n>=3?G.TAGS[it.tag].b3:G.TAGS[it.tag].b2}</span>`;return t;}
 function cmp(it){if(S.unl.synergy)return synPreview(it)||'';const c=S[it.slot];if(!c)return '<span class="delta good">слот пуст</span>';const d=Math.round(G.score(it)-G.score(c));
@@ -63,13 +63,13 @@ function runEval(){const rows=[{name:'Ваш расклад',a:S.alloc.slice(),y
  const mx=Math.max(...y.bins);
  $('eval').innerHTML=`<div class="hint">Ваш расклад: распределение золота за поход (0…${fmt(y.max)}), красный — ноль</div><div class="hist">${y.bins.map((b,i)=>`<i class="${i?'':'z'}" style="height:${b/mx*100}%"></i>`).join('')}</div>${h}</table>`;}
 function render(){RC=null;header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
- const slot=(k)=>{const it=S[k];if(!it)return '';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
+ const slot=(k)=>{const it=S[k];if(!it)return G.slotsOpen(S).includes(k)?`<div class="item empty"><div class="txt"><small>${G.SLOT_RU[k]}: пусто — найдите в походе</small></div></div>`:'';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
   const can=U.shop&&it.slot!=='charm'&&it.lvl<10;
   const info=p<1?`<br><small>шанс ${pct(p)}${G.enhDown(it.lvl)?' · провал: −1 ур.':''} · ≈${G.expTries(it.lvl,S.useScroll&&S.scrolls>0).toFixed(1)} попыт.</small>`:'';
   return itemHtml(it,can?`<button class="small" data-up="${k}" ${S.gold>=c.gold&&S.mats>=c.mats?'':'disabled'} title="Улучшить снаряжение">⬆ +${it.lvl+1}: ${fmt(c.gold)}💰 ${fmt(c.mats)}🔩${info}</button>`:'');};
  if(act('hero'))$('hero').innerHTML=`<div class="herobox ${S.run&&!S.run.waiting?'walking':''}">${ART.hero()}<div><b>Герой, ур. ${S.lvl}</b><br>⚔️ ${G.heroDmg(S)} · ❤️ ${G.heroHp(S)}<br><span title="Сила = урон + HP/4; открывает локации">💪 Сила ${G.heroPower(S)}</span><br><small>Походов ${S.runs}${S.deaths?`, гибелей ${S.deaths}`:''}</small></div>
- ${(S.weapon||S.armor||S.charm)?`<div class="slots">${slot('weapon')}${slot('armor')}${slot('charm')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
- synHtml()+(U.pity&&S.shards>=G.SHARDS_FOR_PITY?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
+ ${G.eqOf(S).some(Boolean)?`<div class="slots">${G.SLOTS.map(slot).join('')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
+ synHtml()+gsetHtml()+(U.pity&&S.shards>=G.pityCost(S)?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
  renderTabs();if(act('games')){renderKelly();renderDeck();renderDive();renderGuides();}if(act('stats')){renderRebirth();renderStats();renderSets();renderHowto();}$('snd').textContent=S.sound?'🔊':'🔇';
  renderRun();renderChips();renderMonty();renderSec();applyColl();renderMimic();
  $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];
@@ -78,12 +78,12 @@ function render(){RC=null;header();const U=S.unl;const act=t=>!U.shop||S.tab===t
   return `<button class="loc ${S.loc===i?'sel':''}" data-loc="${i}" ${u&&!S.run?'':'disabled'}>${ART.loc(i)}<span><b>${u?'':'🔒 '}${l.name}</b>${S.cleared.includes(i)?' ✅':''}<br><small>${l.stages} этапа · угроза ${G.locThreat(S,i)}${u?'':' · '+why}</small></span></button>`}).join('');
  $('autoeq').classList.toggle('nudge',S.inv.some(isBetter));
  if(act('hero')){const inv=S.inv.slice().sort((a,b)=>b.r-a.r||G.score(b)-G.score(a));$('disAll').hidden=!U.shop;
- $('inv').innerHTML=(inv.length>40?`<div class="hint">Показаны 40 лучших из ${inv.length}.</div>`:'')+(inv.length?inv.slice(0,40).map(it=>itemHtml(it,cmp(it)+`<button class="small" data-eq="${it.id}">Надеть</button>${U.synergy?`<button class="small" data-keep="${it.id}" title="Тайник: не продаётся">${it.kept?'📦 ✓':'📦'}</button>`:''}${U.shop&&!it.kept?`<button class="small" data-dis="${it.id}">Продать ${fmt(it.value)}💰</button>`:''}`)).join(''):'<div class="hint">Пусто — сходите в поход!</div>');
+ $('eqch').innerHTML=eqChoiceHtml();$('inv').innerHTML=(inv.length>40?`<div class="hint">Показаны 40 лучших из ${inv.length}.</div>`:'')+(inv.length?inv.slice(0,40).map(it=>itemHtml(it,cmp(it)+`<button class="small" data-eq="${it.id}">Надеть</button>${U.synergy?`<button class="small" data-keep="${it.id}" title="Тайник: не продаётся">${it.kept?'📦 ✓':'📦'}</button>`:''}${U.shop&&!it.kept?`<button class="small" data-dis="${it.id}">Продать ${fmt(it.value)}💰</button>`:''}`)).join(''):'<div class="hint">Пусто — сходите в поход!</div>');
  }
  $('shopCard').hidden=!U.shop;
  if(U.shop&&act('shop')){const sh=[['hp','❤️','+12 HP',`ур. ${S.hpUp}`],['dmg','⚔️','+3 урона',`ур. ${S.dmgUp}`],['maxE','⚡','+10 макс. энергии',`${G.maxEnergy(S)}`],
   ['regen','⏱️','Быстрее энергия',`${G.regenSec(S).toFixed(1)}с за ед.`],['boots','👢','Сапоги: походы быстрее',`ур. ${S.bootsUp}`],['bag','🎒','Сумка: +1 предмет за этап',`${G.rolls(S)} предм.`],
-  ['chips','🎲','+1 фишка удачи',`${S.chips}`],['guide','G','Проводник: −3% риска',`ур. ${S.guideUp}`],['lens','🔍','Линза: +5% к редким',`ур. ${S.lensUp}`],['doors','C','+1 сундук у проводника',`${G.doors(S)}`],['stash','📦','Тайник: +3 места',`${G.stashCap(S)} мест`],['scroll','📜','Свиток защиты (от понижения)',`есть ${S.scrolls}`],['bayes','📘','Книга Байеса: показывает вероятность мимика',S.bayesUp?'куплено':'']];
+  ['chips','🎲','+1 фишка удачи',`${S.chips}`+(G.rule(S,'chip')?' (+1 сет)':'')],['guide','G','Проводник: −3% риска',`ур. ${S.guideUp}`],['lens','🔍','Линза: +5% к редким',`ур. ${S.lensUp}`],['doors','C','+1 сундук у проводника',`${G.doors(S)}`],['stash','📦','Тайник: +3 места',`${G.stashCap(S)} мест`],['scroll','📜','Свиток защиты (от понижения)',`есть ${S.scrolls}`],['bayes','📘','Книга Байеса: показывает вероятность мимика',S.bayesUp?'куплено':'']];
   $('shop').innerHTML=sh.filter(x=>G.shopAvail(S,x[0])).map(([k,ic,n,cur])=>{const c=G.SHOP[k](S);const icon=ic==='G'?ART.compass():ic==='C'?ART.chest():`<span style="font-size:1.5rem">${ic}</span>`;
    return `<button data-buy="${k}" ${S.gold>=c?'':'disabled'}>${icon}<span>${n}<br><small>${cur} · ${c===Infinity?'макс.':fmt(c)+'💰'}</small></span></button>`}).join('');}
  save();}
@@ -139,7 +139,16 @@ function renderDive(){$('diveCard').hidden=!S.unl.dive;if(!S.unl.dive)return;con
  <span>Забрать сейчас</span><b>${fmt(G.diveCash(S,x))}💰</b><span>Награда на дне</span><b>легендарка + ${fmt(G.diveCash(S,D.N))}💰</b></div>
  <div class="row">${d?`<button id="dstep" class="big">⬇️ Шаг</button><button id="dcash" class="ok" ${x<=D.A?'disabled':''}>Забрать</button>`:`<button id="dstart" class="big" ${S.energy<D.cost?'disabled':''}>Спуститься (⚡${D.cost})</button>`}</div>
  <div class="hint">Погружений: ${S.diveStats.n}, до дна: ${S.diveStats.top}, разорений: ${S.diveStats.ruin}. Шаг вниз чуть менее вероятен, чем вверх — поэтому дно редкость.</div>`;}
-function synHtml(){if(!S.unl.synergy)return'';const tc=G.tagCount(S);const slots=['weapon','armor','charm'];const ru={weapon:'оружие',armor:'броня',charm:'амулет'};
+let EQCH=null;
+function eqChoiceHtml(){if(!EQCH)return'';return `<div class="eqchoice"><b>«Надеть лучшее» сломает бонус сета: ${EQCH.lost.map(g=>`<span class="r-set">${g.ru}</span>`).join(', ')}</b><br><small>Сила это только урон и HP. Бонусы сета (золото, удача, риск, особое правило) в силу не входят.</small><div class="row"><button id="eqBest">💪 Макс. сила (${EQCH.pb})</button><button id="eqKeep" class="ok">🟩 Сохранить сет (${EQCH.pk})</button></div></div>`;}
+function gsetHtml(){const any=G.GSETS.some(g=>G.ownedPieces(S,g.k).size);if(!any)return'';const cnt=G.setCount(S);const best=Math.max(0,...S.cleared);const AF=k=>AFRU[k];
+ const rows=G.GSETS.map(g=>{const own=G.ownedPieces(S,g.k);const n=cnt[g.k]||0;const loc=Math.max(g.loc,Math.min(best+1,S.loc));const L=S.loc>=g.loc?S.loc:null;
+  const pcs=G.SLOTS.map((sl,i)=>`<span class="pc ${S[sl]&&S[sl].set===g.k?'on':own.has(sl)?'bag':''}" title="${g.names[i]}">${own.has(sl)?'✔':'·'} ${G.SLOT_RU[sl]}</span>`).join('');
+  const b=(t,txt)=>`<div class="${n>=t?'act':''}">${t}: ${txt}</div>`;
+  const prob=own.size>=6?'<small>Все части собраны.</small>':L===null?`<small>Падает в «${G.LOCS[g.loc].name}» и дальше. Выберите там поход, и здесь появится шанс.</small>`:`<small>Шанс собрать недостающие ${6-own.size} шт. в «${G.LOCS[L].name}»: за 10 походов ${pct(G.setComplete(S,L,g,10))}, за 30 — ${pct(G.setComplete(S,L,g,30))}, за 100 — ${pct(G.setComplete(S,L,g,100))}. Это задача о коллекционере: последние части ищутся дольше всего.</small>`;
+  return `<div class="gset ${n>=2?'on':''}"><b class="r-set">🟩 ${g.ru}</b> <small>надето ${n}/6 · найдено ${own.size}/6 · ${G.TAGS[g.tag].ic} тег ${G.TAGS[g.tag].ru}</small><div class="pcs">${pcs}</div>${b(2,`+${g.b2.v}${AF(g.b2.k).unit} ${AF(g.b2.k).ru}`)}${b(4,`+${g.b4.v}${AF(g.b4.k).unit} ${AF(g.b4.k).ru}`)}${b(6,'<b>правило:</b> '+g.ruleRu)}${prob}</div>`;}).join('');
+ return `<div class="gsets"><h3>🟩 Сеты (${G.slotsOpen(S).length}/6 ячеек открыто)</h3><small>Зелёные вещи из сетов падают только из эпиков и легендарок: каждая 4-я такая находка (25%). Части выпадают в случайных ячейках.</small>${rows}</div>`;}
+function synHtml(){if(!S.unl.synergy)return'';const tc=G.tagCount(S);const slots=G.slotsOpen(S);const ru=G.SLOT_RU;
  const rows=Object.entries(tc).map(([t,n])=>{const T=G.TAGS[t];const miss=slots.filter(sl=>!(S[sl]&&S[sl].tag===t));
   const inStash=miss.filter(sl=>S.inv.some(i=>i.slot===sl&&i.tag===t));
   const hint=miss.length?` · не хватает: ${miss.map(sl=>`${ru[sl]}${inStash.includes(sl)?' (есть в сумке!)':` — шанс найти за 5 походов ${pct(G.pieceChance(S,S.loc,sl,t,5))}`}`).join('; ')}`:'';
@@ -197,7 +206,7 @@ document.addEventListener('click',e=>{const hh=e.target.closest('h2.coll');if(hh
 document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){MQ.push(TIPS[tp.dataset.tip]);showModal();return;}
  const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
  if(d.loc!==undefined){S.loc=+d.loc;$('eval').innerHTML='';}
- else if(d.p!==undefined){if(usedChips()<S.chips)S.alloc[+d.p]++;$('eval').innerHTML='';}
+ else if(d.p!==undefined){if(usedChips()<G.chipTotal(S))S.alloc[+d.p]++;$('eval').innerHTML='';}
  else if(d.m!==undefined){if(S.alloc[+d.m]>0)S.alloc[+d.m]--;$('eval').innerHTML='';}
  else if(d.door!==undefined){const p=S.monty.pending;const i=+d.door;if(p.pick===null)G.montyPick(S,i);else if(!p.done&&(i===p.pick||G.montyClosed(p).includes(i)||(p.revealed&&i===p.prize)))G.montyFinal(S,i);}
  else if(b.id==='winx')S.winHidden=1;
@@ -223,7 +232,8 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='cont'){G.continueRun(S);}
  else if(b.id==='ret'){if(!S.run)return;const r=G.bank(S);showReport(`<p class="good">🏠 Вернулись. Сохранено ${r.items.length} предм. (${fmt(r.gold)}💰)${r.sold?`, автопродажа +${fmt(r.sold)}💰`:''}.</p>`+r.items.slice(-6).map((x,i)=>itemHtml(x,'',i+1)).join('')+cardHtml(afterRun()));}
  else if(b.id==='evalb'){runEval();return;}
- else if(b.id==='autoeq'||b.id==='autoeq2'){G.equipBest(S);if(b.id==='autoeq2')b.remove();}
+ else if(b.id==='autoeq'||b.id==='autoeq2'){const ch=G.equipBest(S);if(b.id==='autoeq2')b.remove();if(ch){EQCH=ch;S.tab='hero';}}
+ else if(b.id==='eqBest'||b.id==='eqKeep'){G.equipBest(S,b.id==='eqBest'?'best':'keep');EQCH=null;}
  else if(b.id==='disAll'){S.inv.filter(i=>S[i.slot]&&G.score(i)<=G.score(S[i.slot])).map(i=>i.id).forEach(id=>G.dismantle(S,id));}
  else if(b.id==='reset'){if(confirm('Сбросить весь прогресс?')){S=G.newState();G.tickEnergy(S);$('reportCard').hidden=true;$('eval').innerHTML='';popup('start');}}
  else return;unlocks();checkWin();render();});

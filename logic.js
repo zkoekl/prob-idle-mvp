@@ -1,6 +1,6 @@
 // Pure game logic v4 (browser + node). No DOM here.
 (function(root){
-const SAVE_VER=10;
+const SAVE_VER=11;
 const RARS=['common','uncommon','rare','epic','legendary'];
 const RAR_RU={common:'Обычный',uncommon:'Необычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный'};
 const RAR_W=[600,260,100,32,8];        // base weights for a normal drop roll
@@ -13,9 +13,9 @@ const LOCS=[
  {name:'Тихий лес',mult:1,lvl:1,threat:12,req:0,stages:3},
  {name:'Туманные пещеры',mult:1.4,lvl:1.8,threat:50,req:65,stages:3},
  {name:'Гиблые топи',mult:1.9,lvl:3,threat:110,req:125,stages:4},
- {name:'Пепельная крепость',mult:2.5,lvl:5,threat:210,req:220,stages:4},
- {name:'Хрустальный шпиль',mult:3.2,lvl:8,threat:340,req:350,stages:5},
- {name:'Бездна Удачи',mult:4,lvl:12,threat:520,req:530,stages:5},
+ {name:'Пепельная крепость',mult:2.5,lvl:5,threat:210,req:250,stages:4},
+ {name:'Хрустальный шпиль',mult:3.2,lvl:8,threat:340,req:420,stages:5},
+ {name:'Бездна Удачи',mult:4,lvl:12,threat:520,req:660,stages:5},
 ];
 const GEARL=[1,1.3,1.7,2.2,2.8,3.5];
 const SHARDS_FOR_PITY=40, MAX_LVL=30;
@@ -28,12 +28,40 @@ const TAGS={fire:{ru:'Огонь',ic:'🔥',b2:'урон ×1.15',b3:'урон ×
  luck:{ru:'Удача',ic:'🍀',b2:'шанс редких +15%',b3:'шанс редких +40%',kind:'польза'},shadow:{ru:'Тень',ic:'🌑',b2:'риск −15%',b3:'риск −30%, при гибели 25% добычи спасается',kind:'польза'},
  crit:{ru:'Крит',ic:'🎯',b2:'+1 осколок за этап',b3:'шанс фишек +30%',kind:'польза'}};
 const TAG_K=Object.keys(TAGS);
-function tagCount(s,eq){eq=eq||[s.weapon,s.armor,s.charm];const c={};if(!s.unl||!s.unl.synergy)return c;for(const it of eq)if(it&&it.tag)c[it.tag]=(c[it.tag]||0)+1;return c;}
+// --- gear slots (open gradually) and Diablo-style named sets
+const SLOTS=['weapon','armor','charm','helm','gloves','boots'];const SLOT_W={weapon:42,armor:42,charm:16,helm:30,gloves:30,boots:30};
+const SLOT_RU={weapon:'оружие',armor:'броня',charm:'амулет',helm:'шлем',gloves:'перчатки',boots:'сапоги'};
+function slotsOpen(s){const o=['weapon','armor','charm'];const c=s.cleared||[];if(s.unl&&s.unl.locs)o.push('helm');if(c.includes(1))o.push('gloves');if(c.includes(2))o.push('boots');return o;}
+function eqOf(s){return SLOTS.map(k=>s[k]||null);}
+function slotP(s,sl){const o=slotsOpen(s);if(!o.includes(sl))return 0;return SLOT_W[sl]/o.reduce((a,k)=>a+SLOT_W[k],0);}
+const GSETS=[
+ {k:'forest',ru:'Наследие Лесника',loc:1,tag:'luck',col:'#3fbf5f',b2:{k:'goldPct',v:15},b4:{k:'luck',v:15},rule:'pity',ruleRu:'легендарка из осколков стоит 25, а не 40',
+  names:['Лук Лесника','Плащ Лесника','Желудь-оберег','Капюшон Лесника','Рукавицы Лесника','Мокасины Лесника']},
+ {k:'guard',ru:'Доспех Стража',loc:2,tag:'ice',col:'#3fbf5f',b2:{k:'hpPct',v:20},b4:{k:'riskRed',v:10},rule:'safe1',ruleRu:'на 1-м этапе гибель невозможна',
+  names:['Секира Стража','Кираса Стража','Печать Стража','Шлем Стража','Латные перчатки Стража','Поножи Стража']},
+ {k:'gambler',ru:'Регалии Игрока',loc:3,tag:'crit',col:'#3fbf5f',b2:{k:'dmgPct',v:15},b4:{k:'speed',v:15},rule:'chip',ruleRu:'+1 фишка в каждом походе',
+  names:['Шпага Игрока','Камзол Игрока','Игральная кость','Треуголка Игрока','Перчатки шулера','Туфли Игрока']},
+ {k:'monty',ru:'Око Монти',loc:4,tag:'shadow',col:'#3fbf5f',b2:{k:'luck',v:15},b4:{k:'riskRed',v:12},rule:'honest',ruleRu:'все проводники Монти честные',
+  names:['Жезл ведущего','Фрак ведущего','Монокль ведущего','Цилиндр ведущего','Белые перчатки','Лакированные туфли']}];
+const GS_CH=0.25; // chance that an epic/legendary drop becomes a set piece
+function setsAt(loc){return GSETS.filter(g=>loc>=g.loc);}
+function setCount(s,eq){eq=eq||eqOf(s);const c={};for(const it of eq)if(it&&it.set)c[it.set]=(c[it.set]||0)+1;return c;}
+function setAff(s,k,eq){const c=setCount(s,eq);let v=0;for(const g of GSETS){const n=c[g.k]||0;if(n>=2&&g.b2.k===k)v+=g.b2.v;if(n>=4&&g.b4.k===k)v+=g.b4.v;}return v;}
+function rule(s,r){const g=GSETS.find(x=>x.rule===r);return(setCount(s)[g.k]||0)>=6;}
+function chipTotal(s){return s.chips+(rule(s,'chip')?1:0);}
+function pityCost(s){return rule(s,'pity')?25:SHARDS_FOR_PITY;}
+function ownedPieces(s,k){const o=new Set();for(const it of [...eqOf(s),...s.inv])if(it&&it.set===k)o.add(it.slot);return o;}
+// chance per run to get one specific set piece, and to finish the set within N runs (independent coupons)
+function setPieceRun(s,loc,g,sl){if(loc<g.loc)return 0;const c=rarChances(s,loc);const n=setsAt(loc).length;return 1-Math.pow(1-(c[3]+c[4])*GS_CH/n*slotP(s,sl),rolls(s)*LOCS[loc].stages);}
+function setComplete(s,loc,g,N){const own=ownedPieces(s,g.k);let p=1;for(const sl of SLOTS)if(!own.has(sl))p*=1-Math.pow(1-setPieceRun(s,loc,g,sl),N);return p;}
+function maybeSet(s,it,rng=Math.random){const gs=setsAt(it.loc);if(it.r<3||!gs.length||rng()>=GS_CH)return it;const g=gs[Math.floor(rng()*gs.length)];it.set=g.k;it.tag=g.tag;it.name=g.names[SLOTS.indexOf(it.slot)];return it;}
+function makeSetItem(s,loc,r,g,sl,rng=Math.random,stage=0){const it=makeItem(s,loc,r,rng,stage,sl);it.set=g.k;it.tag=g.tag;it.name=g.names[SLOTS.indexOf(sl)];return it;}
+function tagCount(s,eq){eq=eq||eqOf(s);const c={};if(!s.unl||!s.unl.synergy)return c;for(const it of eq)if(it&&it.tag)c[it.tag]=(c[it.tag]||0)+1;return c;}
 function syn(s,tag,eq){return tagCount(s,eq)[tag]||0;}
-function retroTag(s){const all=[s.weapon,s.armor,s.charm,...(s.inv||[])].filter(Boolean);for(const it of all)if(it.tag===undefined)it.tag=it.r>=1?TAG_K[(it.id*2654435761>>>0)%TAG_K.length]:null;}
+function retroTag(s){const all=[...eqOf(s),...(s.inv||[])].filter(Boolean);for(const it of all)if(it.tag===undefined)it.tag=it.r>=1?TAG_K[(it.id*2654435761>>>0)%TAG_K.length]:null;}
 function stashCap(s){return 6+s.stashUp*3;}
 function keptCount(s){return s.inv.filter(i=>i.kept).length;}
-function pieceChance(s,loc,slot,tag,N){const c=rarChances(s,loc);const pSlot=slot==='charm'?0.16:0.42;const p=pSlot*(1-c[0])/TAG_K.length;const k=rolls(s)*LOCS[loc].stages*N;return 1-Math.pow(1-p,k);}
+function pieceChance(s,loc,slot,tag,N){const c=rarChances(s,loc);const pSlot=slotP(s,slot);const p=pSlot*(1-c[0])/TAG_K.length;const k=rolls(s)*LOCS[loc].stages*N;return 1-Math.pow(1-p,k);}
 // --- math
 function binom(n,k){let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return r;}
 function pmf(n,k,p){return binom(n,k)*Math.pow(p,k)*Math.pow(1-p,n-k);}
@@ -42,23 +70,23 @@ function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*
 // --- unlocks
 const UNLOCKS=[
  {k:'shop',need:s=>s.runs>=8},{k:'chips',need:s=>s.runs>=16},{k:'stages',need:s=>s.runs>=20},{k:'stats',need:s=>s.runs>=22},
- {k:'locs',need:s=>s.runs>=24&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=27},{k:'sets',need:s=>s.runs>=29},{k:'monty',need:s=>s.runs>=32},{k:'enhance',need:s=>[s.weapon,s.armor].some(i=>i&&i.lvl>=4)},
+ {k:'locs',need:s=>s.runs>=24&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=27},{k:'sets',need:s=>s.runs>=29},{k:'monty',need:s=>s.runs>=32},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
  {k:'synergy',need:s=>s.runs>=30},{k:'thresh',need:s=>s.runs>=37},{k:'mimic',need:s=>s.runs>=41},{k:'deck',need:s=>s.runs>=44},{k:'offline',need:s=>s.runs>=46},{k:'eval',need:s=>s.runs>=48},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=52},{k:'secretary',need:s=>s.runs>=55},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
 function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
  chips:2,hpUp:0,dmgUp:0,maxEUp:0,regenUp:0,guideUp:0,lensUp:0,bagUp:0,bootsUp:0,doorsUp:0,
- alloc:[0,0,0],inv:[],weapon:null,armor:null,charm:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
+ alloc:[0,0,0],inv:[],weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
 function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);return n;}}catch(e){}return null;}
 // --- hero
-function aff(s,k,eq){let v=setBonus(s,k);for(const it of (eq||[s.weapon,s.armor,s.charm])){if(it)for(const a of it.affixes)if(a.k===k)v+=a.v;}return v;}
+function aff(s,k,eq){eq=eq||eqOf(s);let v=setBonus(s,k)+setAff(s,k,eq);for(const it of eq){if(it)for(const a of it.affixes)if(a.k===k)v+=a.v;}return v;}
 function itemPower(it){return Math.round(it.power*Math.pow(1.12,it.lvl||0));}
 function synMul(n,a,b){return n>=3?b:n>=2?a:1;}
-function heroDmg(s,eq){const W=eq?eq[0]:s.weapon;const w=W?itemPower(W):0;return Math.round((10+(s.lvl-1)*2+s.dmgUp*3+w)*(1+aff(s,'dmgPct',eq)/100)*synMul(syn(s,'fire',eq),1.15,1.4));}
-function heroHp(s,eq){const A=eq?eq[1]:s.armor;const a=A?itemPower(A)*3:0;return Math.round((50+(s.lvl-1)*8+s.hpUp*12+a)*(1+aff(s,'hpPct',eq)/100)*synMul(syn(s,'ice',eq),1.15,1.4));}
+function heroDmg(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const w=P(0)+P(4)*0.25+P(5)*0.1;return Math.round((10+(s.lvl-1)*2+s.dmgUp*3+w)*(1+aff(s,'dmgPct',eq)/100)*synMul(syn(s,'fire',eq),1.15,1.4));}
+function heroHp(s,eq){eq=eq||eqOf(s);const P=i=>eq[i]?itemPower(eq[i]):0;const a=P(1)*3+P(3)*0.8+P(5)*0.4;return Math.round((50+(s.lvl-1)*8+s.hpUp*12+a)*(1+aff(s,'hpPct',eq)/100)*synMul(syn(s,'ice',eq),1.15,1.4));}
 function heroPower(s,eq){return Math.round(heroDmg(s,eq)+heroHp(s,eq)/4);}
 function xpNeed(l){return Math.round(40*Math.pow(1.3,l-1));}
 function addXp(s,x){if(s.lvl>=MAX_LVL)return 0;s.xp+=x;let up=0;while(s.lvl<MAX_LVL&&s.xp>=xpNeed(s.lvl)){s.xp-=xpNeed(s.lvl);s.lvl++;up++;}return up;}
@@ -80,7 +108,7 @@ function rarChances(s,loc,stage=0){const m=LOCS[loc].mult*(1+0.1*stage)*luckMul(
 function itemValue(s,loc,r,stage=0){return Math.round(RAR_VAL[r]*LOCS[loc].lvl*(1+0.15*stage)*(1+aff(s,'goldPct')/100)*(1+0.25*s.rebirths)*(dmod(s,'gold')?1.25:1));}
 function chipChance(s,loc,t,stage=0){return Math.min(0.9,(syn(s,'crit')>=3?1.3:1)*(dmod(s,'chips')?1.25:1)*CHIP_T[t].p*Math.pow(LOCS[loc].mult,0.5+t*0.25)*(1+0.1*stage)*luckMul(s));}
 function riskWeight(alloc){return alloc[0]*0.05+alloc[1]*0.15+alloc[2]*0.3;}
-function deathChance(s,loc,alloc,stage){if(!s.unl.stages)return 0;const L=LOCS[loc];const def=heroHp(s)+3*heroDmg(s);
+function deathChance(s,loc,alloc,stage){if(!s.unl.stages)return 0;if(stage===0&&rule(s,'safe1'))return 0;const L=LOCS[loc];const def=heroHp(s)+3*heroDmg(s);
  const d=0.22*locThreat(s,loc)*(1+0.25*stage)*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
  return Math.max(0.005,Math.min(0.9,d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)*(dmod(s,'safe')?0.75:1)*(syn(s,'shadow')>=3?0.7:syn(s,'shadow')>=2?0.85:1)));}
 function stageEV(s,loc,alloc,stage){const c=rarChances(s,loc,stage);let v=rolls(s)*c.reduce((a,p,r)=>a+p*itemValue(s,loc,r,stage),0);
@@ -88,20 +116,29 @@ function stageEV(s,loc,alloc,stage){const c=rarChances(s,loc,stage);let v=rolls(
 // --- items
 function rint(rng,a,b){return a+Math.floor(rng()*(b-a+1));}
 function pickRar(c,rng){let x=rng();for(let r=0;r<5;r++){x-=c[r];if(x<0)return r;}return 4;}
-function makeItem(s,loc,r,rng=Math.random,stage=0){const q=rng();const slot=q<0.42?'weapon':q<0.84?'armor':'charm';const rar=RARS[r];
+function makeItem(s,loc,r,rng=Math.random,stage=0,forceSlot){const q=rng();let slot=forceSlot;if(!slot){const o=slotsOpen(s);let x=q*o.reduce((a,k)=>a+SLOT_W[k],0);slot=o[o.length-1];for(const k of o){x-=SLOT_W[k];if(x<0){slot=k;break;}}}const rar=RARS[r];
  const power=slot==='charm'?0:Math.max(1,Math.round((1+(r*2+1)*0.4)*GEARL[loc]*(0.8+rng()*0.4)));
- const names={weapon:['Кинжал','Меч','Топор','Копьё','Посох'],armor:['Куртка','Кольчуга','Панцирь','Мантия','Щит'],charm:['Амулет','Кольцо','Талисман','Брошь','Оберег']};
- let n=AFFIX_N[r]+(slot==='charm'?1:0);const pool=AFFIXES.slice();const affixes=[];
- while(n-->0&&pool.length){const a=pool.splice(Math.floor(rng()*pool.length),1)[0];affixes.push({k:a.k,v:Math.round(rint(rng,a.min,a.max)*(1+loc*0.25)*(r===4?1.5:1))});}
+ const names={weapon:['Кинжал','Меч','Топор','Копьё','Посох'],armor:['Куртка','Кольчуга','Панцирь','Мантия','Щит'],charm:['Амулет','Кольцо','Талисман','Брошь','Оберег'],helm:['Шапка','Шлем','Капюшон','Венец','Маска'],gloves:['Перчатки','Наручи','Рукавицы','Краги','Митенки'],boots:['Сапоги','Ботинки','Поножи','Сандалии','Башмаки']};
+ const minor=slot==='helm'||slot==='gloves'||slot==='boots';let n=Math.max(0,AFFIX_N[r]+(slot==='charm'?1:0)-(minor?1:0));const pool=AFFIXES.slice();const affixes=[];
+ while(n-->0&&pool.length){const a=pool.splice(Math.floor(rng()*pool.length),1)[0];affixes.push({k:a.k,v:Math.round(rint(rng,a.min,a.max)*(1+loc*0.25)*(r===4?1.5:1)*(minor?0.5:1))});}
  return{id:s.nextId++,slot,r,rarity:rar,loc,power,lvl:0,affixes,tag:r>=1?TAG_K[Math.floor(rng()*TAG_K.length)]:null,value:itemValue(s,loc,r,stage),name:names[slot][Math.floor(rng()*5)]};}
 function score(it){return itemPower(it)+it.affixes.reduce((a,x)=>a+x.v*0.6,0)+(it.slot==='charm'?it.r*3:0);}
-function equip(s,id){const i=s.inv.findIndex(x=>x.id===id);if(i<0)return;const it=s.inv.splice(i,1)[0];it.kept=false;if(s[it.slot])s.inv.push(s[it.slot]);s[it.slot]=it;}
+function equip(s,id){const it0=s.inv.find(x=>x.id===id);if(it0&&!slotsOpen(s).includes(it0.slot))return;const i=s.inv.findIndex(x=>x.id===id);if(i<0)return;const it=s.inv.splice(i,1)[0];it.kept=false;if(s[it.slot])s.inv.push(s[it.slot]);s[it.slot]=it;}
 function toggleKeep(s,id){const it=s.inv.find(x=>x.id===id);if(!it)return false;if(!it.kept&&keptCount(s)>=stashCap(s))return'full';it.kept=!it.kept;return true;}
-function equipBest(s){if(!s.unl.synergy){let ch=true;while(ch){ch=false;for(const it of s.inv.slice()){const c=s[it.slot];if(!c||score(it)>score(c)){equip(s,it.id);ch=true;}}}return;}
- const cand=sl=>{const a=s.inv.filter(i=>i.slot===sl);if(s[sl])a.push(s[sl]);a.sort((x,y)=>score(y)-score(x));const top=a.slice(0,5);for(const t of TAG_K){const b=a.find(i=>i.tag===t);if(b&&!top.includes(b))top.push(b);}return top.length?top:[null];};
- const W=cand('weapon'),A=cand('armor'),Ch=cand('charm');let best=null,bv=-1;
- for(const w of W)for(const a of A)for(const c of Ch){const v=heroPower(s,[w,a,c])+(c?score(c)*0.01:0);if(v>bv){bv=v;best=[w,a,c];}}
- ['weapon','armor','charm'].forEach((sl,i)=>{const it=best[i];if(it&&s[sl]!==it)equip(s,it.id);});}
+function setVal(s,eq){const c=setCount(s,eq);let v=0;for(const g of GSETS){const n=c[g.k]||0;v+=(n>=2?8:0)+(n>=4?12:0)+(n>=6?30:0);}return v;}
+function planBest(s,keepSets){const open=slotsOpen(s);const cur=eqOf(s);const lock=new Set();
+ if(keepSets){const c=setCount(s);cur.forEach((it,i)=>{if(it&&it.set&&c[it.set]>=2)lock.add(i);});}
+ const val=eq=>s.unl.synergy?heroPower(s,eq)+(keepSets?setVal(s,eq):0)+eq.reduce((a,it)=>a+(it?score(it)*0.01:0),0):eq.reduce((a,it)=>a+(it?score(it):0),0);
+ const cand=SLOTS.map((sl,i)=>open.includes(sl)&&!lock.has(i)?[cur[i],...s.inv.filter(x=>x.slot===sl)]:[cur[i]]);
+ let eq=cur.slice(),bv=val(eq);for(let pass=0;pass<4;pass++){let ch=false;for(let i=0;i<6;i++)for(const it of cand[i]){if(it===eq[i])continue;const t=eq.slice();t[i]=it;const v=val(t);if(v>bv+1e-9){bv=v;eq=t;ch=true;}}if(!ch)break;}
+ return eq;}
+function applyPlan(s,eq){SLOTS.forEach((sl,i)=>{const it=eq[i];if(it&&s[sl]!==it)equip(s,it.id);});}
+// returns null when applied, or {best,keep} when the best set would break an active set bonus (UI asks)
+function equipBest(s,mode){const best=planBest(s,false);if(mode==='best'){applyPlan(s,best);return null;}
+ const keep=planBest(s,true);if(mode==='keep'){applyPlan(s,keep);return null;}
+ const lost=GSETS.filter(g=>{const a=setCount(s)[g.k]||0,b=setCount(s,best)[g.k]||0;return [2,4,6].some(t=>a>=t&&b<t);});
+ if(lost.length&&best.some((x,i)=>x!==keep[i])){return{best,keep,lost,pb:heroPower(s,best),pk:heroPower(s,keep)};}
+ applyPlan(s,best);return null;}
 function dismantle(s,id){const i=s.inv.findIndex(x=>x.id===id);if(i<0||s.inv[i].kept)return 0;const it=s.inv.splice(i,1)[0];s.gold+=it.value;s.mats+=(it.r+1)*(1+it.loc);return it.value;}
 function upgradeCost(it){return{gold:Math.round(it.value*0.6*Math.pow(1.5,it.lvl)+10),mats:Math.round((it.r+1)*(1+it.loc)*2*Math.pow(1.4,it.lvl))};}
 function enhP(lvl){return lvl<4?1:Math.max(0.35,1-(lvl-3)*0.1);}
@@ -115,14 +152,14 @@ function upgradeItem(s,slot,useScroll=false,rng=Math.random){const it=s[slot];if
  if(enhDown(it.lvl)){if(useScroll&&s.scrolls>0){s.scrolls--;return'saved';}it.lvl--;return'down';}return'fail';}
 // --- expedition: timed stages
 function startRun(s,now=Date.now()){if(s.run)return'run';const f=runCost(s,s.loc);if(s.energy<f)return'energy';
- const a=s.unl.chips?s.alloc.slice():[0,0,0];if(a.reduce((x,y)=>x+y,0)>s.chips)return'chips';
+ const a=s.unl.chips?s.alloc.slice():[0,0,0];if(a.reduce((x,y)=>x+y,0)>chipTotal(s))return'chips';
  s.energy-=f;s.run={loc:s.loc,alloc:a,stage:0,loot:[],endAt:now+stageMs(s,s.loc),waiting:false};return null;}
 function continueRun(s,now=Date.now()){const r=s.run;if(!r||!r.waiting)return false;r.waiting=false;r.endAt=now+stageMs(s,r.loc);return true;}
 function rollStage(s,rng=Math.random){const r=s.run;if(!r||r.waiting)return null;const L=LOCS[r.loc];
  const dc=deathChance(s,r.loc,r.alloc,r.stage);const res={stage:r.stage+1,drops:[],shards:0,died:false,dc,chips:[]};
  const c=rarChances(s,r.loc,r.stage);let gotLeg=false;
  for(let r2=0;r2<5;r2++)s.stats.exp[r2]+=c[r2]*rolls(s);
- for(let i=0;i<rolls(s);i++){const rr=pickRar(c,rng);s.stats.rolls[rr]++;res.drops.push(makeItem(s,r.loc,rr,rng,r.stage));if(rr===4)gotLeg=true;}
+ for(let i=0;i<rolls(s);i++){const rr=pickRar(c,rng);s.stats.rolls[rr]++;res.drops.push(maybeSet(s,makeItem(s,r.loc,rr,rng,r.stage),rng));if(rr===4)gotLeg=true;}
  r.alloc.forEach((n,t)=>{if(!n)return;const p=chipChance(s,r.loc,t,r.stage);let k=0;for(let i=0;i<n;i++){if(rng()<p)k++;else if(t===2)res.shards++;}s.stats.chipHit+=k;s.stats.chipExp+=n*p;
   const paid=k>=thr(s,t);res.chips.push({t,k,n,paid});if(paid)for(let i=0;i<k;i++){res.drops.push(makeItem(s,r.loc,CHIP_T[t].r,rng,r.stage));if(t===2)gotLeg=true;}});
  if(!gotLeg)res.shards++;
@@ -140,7 +177,7 @@ function rollStage(s,rng=Math.random){const r=s.run;if(!r||r.waiting)return null
   res.bank=bank(s);if(res.finished&&s.unl.kelly)s.kelly.tokens=Math.min(10,s.kelly.tokens+1);return res;}
  r.waiting=true;return res;}
 function bank(s){const r=s.run;if(!r)return null;s.inv.forEach(i=>i.fresh=false);r.loot.forEach(i=>i.fresh=true);s.inv.push(...r.loot);const g=r.loot.reduce((a,b)=>a+b.value,0);s.runs++;s.run=null;const sold=autoSellItems(s,r.loot);return{items:r.loot,gold:g,sold};}
-function craftPity(s,rng=Math.random){if(s.shards<SHARDS_FOR_PITY)return null;s.shards-=SHARDS_FOR_PITY;s.pityUsed=(s.pityUsed||0)+1;const it=makeItem(s,Math.max(0,...s.cleared),4,rng);s.inv.push(it);return it;}
+function craftPity(s,rng=Math.random){const pc=pityCost(s);if(s.shards<pc)return null;s.shards-=pc;s.pityUsed=(s.pityUsed||0)+1;const it=makeItem(s,Math.max(0,...s.cleared),4,rng);s.inv.push(it);return it;}
 // --- coupon collector trophies: 5 per location, uniform; full set = permanent bonus
 const SETS=[{ru:'Лесной гербарий',bonus:'goldPct',v:10},{ru:'Пещерные кристаллы',bonus:'hpPct',v:10},{ru:'Болотные тотемы',bonus:'riskRed',v:8},
  {ru:'Пепельные печати',bonus:'dmgPct',v:12},{ru:'Осколки шпиля',bonus:'luck',v:12},{ru:'Карты Бездны',bonus:'speed',v:15}];
@@ -158,7 +195,7 @@ function resolveMimic(s,open,rng=Math.random){const m=s.mimic;if(!m)return null;
  if(!open)return{open,isM:m.isM,post};
  if(m.isM){const lost=Math.min(s.energy,10);s.energy-=lost;const g=Math.round(s.gold*0.1);s.gold-=g;return{open,isM:true,post,lost,g};}
  const it=makeItem(s,m.loc,Math.min(4,3+(rng()<0.25?1:0)),rng);s.inv.push(it);return{open,isM:false,post,item:it};}
-function autoSellItems(s,items){if(!s.autoSell)return 0;let g=0;for(const it of items){if(it.r<s.autoSell&&!(s.unl.synergy&&it.tag&&it.r>=2)&&(!s[it.slot]||score(it)<=score(s[it.slot]))){g+=dismantle(s,it.id);}}return g;}
+function autoSellItems(s,items){if(!s.autoSell)return 0;let g=0;for(const it of items){if(it.r<s.autoSell&&!it.set&&!(s.unl.synergy&&it.tag&&it.r>=2)&&(!s[it.slot]||score(it)<=score(s[it.slot]))){g+=dismantle(s,it.id);}}return g;}
 // --- daily luck modifier (same for everyone on a given local date)
 const DAILY=[{k:'leg',ru:'День удачи: легендарки ×1.5'},{k:'energy',ru:'Бодрый день: энергия на 25% быстрее'},{k:'safe',ru:'Тихий день: риск гибели −25%'},
  {k:'gold',ru:'Ярмарка: золото +25%'},{k:'chips',ru:'Азартный день: шанс фишек +25%'},{k:'mimic',ru:'День мимиков: подозрительные сундуки чаще'},{k:'xp',ru:'День учёбы: опыт ×1.5'}];
@@ -250,7 +287,7 @@ function maybeMonty(s,rng=Math.random,force=false){if(!s.unl.monty||s.monty.pend
  if(!force){if(s.monty.since<2&&s.monty.plays>0)return false;if(rng()>0.5&&s.monty.plays>0)return false;}s.monty.since=0;
  const n=doors(s);const g=s.monty.guides?Math.floor(rng()*3):-1;
  s.monty.pending={n,prize:Math.floor(rng()*n),pick:null,opened:[],guide:g,done:false,loc:Math.max(0,...s.cleared)};return true;}
-function guideType(s,p){return p.guide<0?'honest':s.monty.guides[p.guide].type;}
+function guideType(s,p){return p.guide<0||rule(s,'honest')?'honest':s.monty.guides[p.guide].type;}
 function montyPick(s,i,rng=Math.random){const p=s.monty.pending;if(!p||p.pick!==null)return;p.pick=i;const n=p.n;
  const others=[...Array(n).keys()].filter(x=>x!==i);const type=guideType(s,p);
  const shuffle=a=>{for(let k=a.length-1;k>0;k--){const j=Math.floor(rng()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;};
@@ -294,7 +331,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,SLOTS,SLOT_RU,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
