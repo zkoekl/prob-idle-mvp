@@ -43,7 +43,7 @@ const GSETS=[
   names:['Шпага Игрока','Камзол Игрока','Игральная кость','Треуголка Игрока','Перчатки шулера','Туфли Игрока']},
  {k:'monty',ru:'Око Монти',loc:4,tag:'shadow',col:'#3fbf5f',b2:{k:'luck',v:15},b4:{k:'riskRed',v:12},rule:'honest',ruleRu:'все проводники Монти честные',
   names:['Жезл ведущего','Фрак ведущего','Монокль ведущего','Цилиндр ведущего','Белые перчатки','Лакированные туфли']}];
-const GS_CH=0.25; // chance that an epic/legendary drop becomes a set piece
+const GS_CH=0.3; // chance that a rare+ drop becomes a set piece; half of set drops are 'smart' (a missing piece)
 function setsAt(loc){return GSETS.filter(g=>loc>=g.loc);}
 function setCount(s,eq){eq=eq||eqOf(s);const c={};for(const it of eq)if(it&&it.set)c[it.set]=(c[it.set]||0)+1;return c;}
 function setAff(s,k,eq){const c=setCount(s,eq);let v=0;for(const g of GSETS){const n=c[g.k]||0;if(n>=2&&g.b2.k===k)v+=g.b2.v;if(n>=4&&g.b4.k===k)v+=g.b4.v;}return v;}
@@ -52,9 +52,11 @@ function chipTotal(s){return s.chips+(rule(s,'chip')?1:0);}
 function pityCost(s){return rule(s,'pity')?25:SHARDS_FOR_PITY;}
 function ownedPieces(s,k){const o=new Set();for(const it of [...eqOf(s),...s.inv])if(it&&it.set===k)o.add(it.slot);return o;}
 // chance per run to get one specific set piece, and to finish the set within N runs (independent coupons)
-function setPieceRun(s,loc,g,sl){if(loc<g.loc)return 0;const c=rarChances(s,loc);const n=setsAt(loc).length;return 1-Math.pow(1-(c[3]+c[4])*GS_CH/n*slotP(s,sl),rolls(s)*LOCS[loc].stages);}
+function missOpen(s,g){const own=ownedPieces(s,g.k);return slotsOpen(s).filter(k=>!own.has(k));}
+function setPieceRun(s,loc,g,sl){if(loc<g.loc||!slotsOpen(s).includes(sl))return 0;const c=rarChances(s,loc);const n=setsAt(loc).length;const m=missOpen(s,g).length||1;return 1-Math.pow(1-(c[2]+c[3]+c[4])*GS_CH/n*(0.5/m+0.5*slotP(s,sl)),rolls(s)*LOCS[loc].stages);}
 function setComplete(s,loc,g,N){const own=ownedPieces(s,g.k);let p=1;for(const sl of SLOTS)if(!own.has(sl))p*=1-Math.pow(1-setPieceRun(s,loc,g,sl),N);return p;}
-function maybeSet(s,it,rng=Math.random){const gs=setsAt(it.loc);if(it.r<3||!gs.length||rng()>=GS_CH)return it;const g=gs[Math.floor(rng()*gs.length)];it.set=g.k;it.tag=g.tag;it.name=g.names[SLOTS.indexOf(it.slot)];return it;}
+function maybeSet(s,it,rng=Math.random){const gs=setsAt(it.loc);if(it.r<2||!gs.length||rng()>=GS_CH)return it;const g=gs[Math.floor(rng()*gs.length)];const mo=missOpen(s,g);
+ if(mo.length&&rng()<0.5){const sl=mo[Math.floor(rng()*mo.length)];if(sl!==it.slot)return makeSetItem(s,it.loc,it.r,g,sl,rng);}it.set=g.k;it.tag=g.tag;it.name=g.names[SLOTS.indexOf(it.slot)];return it;}
 function makeSetItem(s,loc,r,g,sl,rng=Math.random,stage=0){const it=makeItem(s,loc,r,rng,stage,sl);it.set=g.k;it.tag=g.tag;it.name=g.names[SLOTS.indexOf(sl)];return it;}
 function tagCount(s,eq){eq=eq||eqOf(s);const c={};if(!s.unl||!s.unl.synergy)return c;for(const it of eq)if(it&&it.tag)c[it.tag]=(c[it.tag]||0)+1;return c;}
 function syn(s,tag,eq){return tagCount(s,eq)[tag]||0;}

@@ -15,7 +15,7 @@ function bot(seed,pre){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Mat
    if(G.deathChance(s,s.run.loc,s.run.alloc,s.run.stage)>0.12){G.bank(s);break;}adv(1000);G.continueRun(s,now);}
   const nu=G.checkUnlocks(s);if(process.env.TR&&nu.length)console.log('  unlock',nu.join(),'at',(now/60000).toFixed(1)+'m','run',s.runs);if(nu.length&&now>300000&&!t5)t5=s.runs;
   if(G.maybeMonty(s,rng)){G.montyPick(s,0,rng);const c=G.montyClosed(s.monty.pending);G.montyFinal(s,c.length?c[0]:0,rng);G.montyClear(s);adv(5000);}
-  G.equipBest(s);s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}G.drawCard(s,s.loc,rng);if(G.maybeSecretary(s,rng)){while(s.sec)G.secPass(s);}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
+  G.equipBest(s,'best');s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}G.drawCard(s,s.loc,rng);if(G.maybeSecretary(s,rng)){while(s.sec)G.secPass(s);}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
   let b=true;while(b){b=false;const o=Object.keys(G.SHOP).filter(k=>(k!=='scroll'||s.scrolls<2)&&G.shopAvail(s,k)&&G.SHOP[k](s)<Infinity).sort((x,y)=>G.SHOP[x](s)-G.SHOP[y](s));if(o.length&&s.gold>=G.SHOP[o[0]](s))b=G.buy(s,o[0]);}
   if(process.env.TR&&n%20==0)console.log(Math.round(now/60000)+'m',s.runs,s.loc,G.heroPower(s),s.lvl,Object.keys(s.unl).join());}
  return{s,min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
@@ -49,7 +49,7 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  assert(Math.abs(ru/20000-G.ruinP(0.47,3,10))<0.015,'ruin mc');const d=G.newState();d.unl.dive=1;d.energy=20;assert(G.diveStart(d)&&d.energy===12,'dive');let r;while(d.dive)r=G.diveStep(d);assert(r.end,'dive end');}
 {const s=G.newState();s.unl.synergy=1;const mk=(slot,tag,p)=>({id:s.nextId++,slot,r:2,rarity:'rare',loc:0,power:p,lvl:0,affixes:[],tag,value:1});
  s.inv.push(mk('weapon','fire',10),mk('armor','ice',10),mk('charm','luck',0),mk('weapon','fire',7),mk('armor','fire',6),mk('charm','fire',0));
- G.equipBest(s);assert(s.weapon.tag==='fire'&&s.armor.tag==='fire'&&s.charm.tag==='fire','synergy combo beats singles: '+[s.weapon.tag,s.armor.tag,s.charm.tag]);
+ G.equipBest(s,'best');assert(s.weapon.tag==='fire'&&s.armor.tag==='fire'&&s.charm.tag==='fire','synergy combo beats singles: '+[s.weapon.tag,s.armor.tag,s.charm.tag]);
  assert(G.pieceChance(s,0,'charm','fire',5)>0&&G.pieceChance(s,0,'charm','fire',5)<1,'piece');
  const it=s.inv[0];assert(G.toggleKeep(s,it.id)===true&&G.dismantle(s,it.id)===0,'stash');}
 // anti-farm: each mini-game must not allow unbounded/exponential gold growth
@@ -78,6 +78,6 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  const s3=G.newState();for(const sl of G.SLOTS)s3[sl]=G.makeSetItem(s3,4,4,G.GSETS[3],sl);s3.monty.guides=[{type:'random'}];assert(G.guideType(s3,{guide:0})==='honest','honest rule');
  const s4=G.newState();for(const sl of G.SLOTS)s4[sl]=G.makeSetItem(s4,4,4,G.GSETS[2],sl);assert(G.chipTotal(s4)===s4.chips+1,'chip rule');
  const s5=G.newState();for(const sl of G.SLOTS)s5[sl]=G.makeSetItem(s5,4,4,G.GSETS[0],sl);assert(G.pityCost(s5)===25,'pity rule');
- let n=0,set=0;const s6=G.newState();s6.unl={locs:1};s6.cleared=[0,1,2,3];for(let i=0;i<20000;i++){const it=G.maybeSet(s6,G.makeItem(s6,3,3));if(it.set){set++;assert(G.GSETS.find(x=>x.k===it.set).loc<=3,'tier');}n++;}
- console.log('set share of epic+ at loc3',(set/n).toFixed(3));}
+ let n=0,set=0;const s6=G.newState();s6.unl={locs:1};s6.cleared=[0,1,2,3];for(let i=0;i<20000;i++){const it=G.maybeSet(s6,G.makeItem(s6,3,3));if(it.set)s6.inv.push(it);if(it.set){set++;assert(G.GSETS.find(x=>x.k===it.set).loc<=3,'tier');}n++;}
+ console.log('set share of rare+ at loc3',(set/n).toFixed(3));}
 console.log('TESTS OK');
