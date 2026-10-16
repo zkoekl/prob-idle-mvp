@@ -100,3 +100,7 @@ section.collapsed>:not(h2){display:none!important}section.collapsed h2.coll::aft
 
 .locgrid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px}.locart{height:42px}.loc span{padding:4px 6px;font-size:.75rem}
 .winc{padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.tag{display:inline-block;border-radius:8px;padding:0 6px;font-size:.72rem;background:#eee;color:#444}.t-fire{background:#ffe2d1;color:#b0441a}.t-ice{background:#dcefff;color:#1f5e99}
+.t-luck{background:#dff5df;color:#2d7a35}.t-shadow{background:#e4e0ee;color:#4a3f66}.t-crit{background:#fff3cc;color:#8a6500}
+.badge.syn{background:#8e44c9}.syn{margin-top:8px;padding:8px;background:#faf7ff;border-radius:10px;font-size:.85rem}.synrow{margin-top:4px;color:#777}.synrow.on{color:#2b2d33}.synrow.on b{color:#8e44c9}

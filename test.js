@@ -47,4 +47,9 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  console.log('secretary best rate',(best/3000).toFixed(3));assert(best/3000>0.3,'sec');}
 {assert(Math.abs(G.ruinP(0.5,3,10)-0.7)<1e-9,'ruin fair');let ru=0;for(let i=0;i<20000;i++){let x=3;while(x>0&&x<10)x+=Math.random()<0.47?1:-1;if(x===0)ru++;}
  assert(Math.abs(ru/20000-G.ruinP(0.47,3,10))<0.015,'ruin mc');const d=G.newState();d.unl.dive=1;d.energy=20;assert(G.diveStart(d)&&d.energy===12,'dive');let r;while(d.dive)r=G.diveStep(d);assert(r.end,'dive end');}
+{const s=G.newState();s.unl.synergy=1;const mk=(slot,tag,p)=>({id:s.nextId++,slot,r:2,rarity:'rare',loc:0,power:p,lvl:0,affixes:[],tag,value:1});
+ s.inv.push(mk('weapon','fire',10),mk('armor','ice',10),mk('charm','luck',0),mk('weapon','fire',7),mk('armor','fire',6),mk('charm','fire',0));
+ G.equipBest(s);assert(s.weapon.tag==='fire'&&s.armor.tag==='fire'&&s.charm.tag==='fire','synergy combo beats singles: '+[s.weapon.tag,s.armor.tag,s.charm.tag]);
+ assert(G.pieceChance(s,0,'charm','fire',5)>0&&G.pieceChance(s,0,'charm','fire',5)<1,'piece');
+ const it=s.inv[0];assert(G.toggleKeep(s,it.id)===true&&G.dismantle(s,it.id)===0,'stash');}
 console.log('TESTS OK');
