@@ -3,8 +3,8 @@ let sum=0;for(let k=0;k<=10;k++)sum+=G.pmf(10,k,0.3);assert(Math.abs(sum-1)<1e-9
 assert(Math.abs(G.expPaid(10,0.3,1)-3)<1e-9,'exp');assert(G.load('{"ver":3}')===null,'old save reset');
 {const c=G.rarChances(G.newState(),0);assert(Math.abs(c.reduce((a,b)=>a+b,0)-1)<1e-9,'chances');}
 // bot: time-based playthrough. Human-ish: ~3s think per action on top of run timers/energy waits.
-function bot(seed){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
- let now=1;const s=G.newState();G.tickEnergy(s,now);let n=0,t5=null;
+function bot(seed,pre){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+ let now=1;const s=pre||G.newState();G.tickEnergy(s,now);let n=0,t5=null;
  const adv=ms=>{now+=ms;G.tickEnergy(s,now);};
  while(!s.won&&n<3000){n++;
   if(s.unl.locs)for(let l=G.LOCS.length-1;l>=0;l--)if(G.unlocked(s,l)){s.loc=l;break;}
@@ -18,8 +18,9 @@ function bot(seed){let a=seed;const rng=()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.im
   G.equipBest(s);s.inv.slice().forEach(i=>G.dismantle(s,i.id));G.craftPity(s,rng);for(const sl of['weapon','armor']){let k=0;while(k++<3&&G.upgradeItem(s,sl,true,rng));}if(G.maybeMimic(s,rng)){G.knock(s,rng);G.knock(s,rng);G.resolveMimic(s,G.posterior(s.mimic.knocks)<0.4,rng);}
   let b=true;while(b){b=false;const o=Object.keys(G.SHOP).filter(k=>(k!=='scroll'||s.scrolls<2)&&G.shopAvail(s,k)&&G.SHOP[k](s)<Infinity).sort((x,y)=>G.SHOP[x](s)-G.SHOP[y](s));if(o.length&&s.gold>=G.SHOP[o[0]](s))b=G.buy(s,o[0]);}
   if(process.env.TR&&n%20==0)console.log(Math.round(now/60000)+'m',s.runs,s.loc,G.heroPower(s),s.lvl,Object.keys(s.unl).join());}
- return{min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
-for(const sd of[1,2,3])console.log(JSON.stringify(bot(sd)));
+ return{s,min:Math.round(now/60000),runs:s.runs,won:s.won,lvl:s.lvl,pow:G.heroPower(s),deaths:s.deaths,unl:Object.keys(s.unl).length,cleared:s.cleared.join('')};}
+for(const sd of[1,2,3]){const r=bot(sd);const {s,...o}=r;console.log(JSON.stringify(o));
+ G.rebirth(s,'luck');s.energyT=0;const r2=bot(sd+10,s);const {s:s2,...o2}=r2;console.log('  after rebirth:',JSON.stringify(o2));}
 {const s=G.newState();s.unl.stages=1;const mc=G.monteCarlo(s,0,[1,1,0],1,2000);assert(mc.mean>0&&mc.bins.length===12,'mc');}
 {const m=G.newState();m.unl.monty=1;for(let i=0;i<3000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true);G.montyPick(m,0);G.montyFinal(m,G.montyClosed(m.monty.pending)[0]);}
  const st=m.monty.stats.switch;console.log('honest switch win',(st[0]/st[1]).toFixed(3));assert(Math.abs(st[0]/st[1]-2/3)<0.04,'monty');

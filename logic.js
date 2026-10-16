@@ -50,7 +50,10 @@ function heroHp(s){const a=s.armor?itemPower(s.armor)*3:0;return Math.round((50+
 function heroPower(s){return Math.round(heroDmg(s)+heroHp(s)/4);}
 function xpNeed(l){return Math.round(40*Math.pow(1.3,l-1));}
 function addXp(s,x){if(s.lvl>=MAX_LVL)return 0;s.xp+=x;let up=0;while(s.lvl<MAX_LVL&&s.xp>=xpNeed(s.lvl)){s.xp-=xpNeed(s.lvl);s.lvl++;up++;}return up;}
-function unlocked(s,l){return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroPower(s)>=LOCS[l].req);}
+function rbMul(s){return 1+0.1*(s.rebirths||0);}
+function locReq(s,l){return Math.round(LOCS[l].req*rbMul(s));}
+function locThreat(s,l){return Math.round(LOCS[l].threat*rbMul(s));}
+function unlocked(s,l){return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroPower(s)>=locReq(s,l));}
 // --- energy & time
 function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*15;}
 function regenSec(s){return 12*Math.pow(0.9,s.regenUp);}
@@ -66,7 +69,7 @@ function itemValue(s,loc,r,stage=0){return Math.round(RAR_VAL[r]*LOCS[loc].lvl*(
 function chipChance(s,loc,t,stage=0){return Math.min(0.9,CHIP_T[t].p*Math.pow(LOCS[loc].mult,0.5+t*0.25)*(1+0.1*stage)*luckMul(s));}
 function riskWeight(alloc){return alloc[0]*0.05+alloc[1]*0.15+alloc[2]*0.3;}
 function deathChance(s,loc,alloc,stage){if(!s.unl.stages)return 0;const L=LOCS[loc];const def=heroHp(s)+3*heroDmg(s);
- const d=0.22*L.threat*(1+0.25*stage)*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
+ const d=0.22*locThreat(s,loc)*(1+0.25*stage)*(0.6+riskWeight(alloc))/def*(stage===0?0.5:1);
  return Math.max(0.005,Math.min(0.9,d*(1-Math.min(60,aff(s,'riskRed')+s.guideUp*3)/100)));}
 function stageEV(s,loc,alloc,stage){const c=rarChances(s,loc,stage);let v=rolls(s)*c.reduce((a,p,r)=>a+p*itemValue(s,loc,r,stage),0);
  alloc.forEach((n,t)=>{if(n)v+=expPaid(n,chipChance(s,loc,t,stage),thr(s,t))*itemValue(s,loc,CHIP_T[t].r,stage);});return v;}
@@ -149,7 +152,7 @@ function offline(s,now=Date.now(),rng=Math.random){const away=s.lastSeen?now-s.l
  const ev={hours,runs:k,items:items.filter(i=>s.inv.includes(i)),sold,events:[]};
  for(const [type,l] of Object.entries(LAMBDA)){const lt=l*hours;const n=poissonDraw(lt,rng);ev.events.push({type,lt,n,p:poissonP(n,lt)});
   for(let i=0;i<n;i++){if(type==='merchant'){const g=Math.round(40*LOCS[loc].lvl*(1+0.25*s.rebirths));s.gold+=g;ev.merchantGold=(ev.merchantGold||0)+g;}
-   else{const pw=heroPower(s)/(LOCS[loc].req+40);const win=rng()<Math.min(0.9,pw*0.6);if(win){const it=makeItem(s,loc,3+(rng()<0.3?1:0),rng);s.inv.push(it);(ev.boss=ev.boss||[]).push(it);}else ev.bossLost=(ev.bossLost||0)+1;}}}
+   else{const pw=heroPower(s)/(locReq(s,loc)+40);const win=rng()<Math.min(0.9,pw*0.6);if(win){const it=makeItem(s,loc,3+(rng()<0.3?1:0),rng);s.inv.push(it);(ev.boss=ev.boss||[]).push(it);}else ev.bossLost=(ev.bossLost||0)+1;}}}
  return ev;}
 // --- Kelly coin: known edge, bet fraction of gold; tokens earned per full run (max 10)
 function kellyNew(s,rng=Math.random){s.kelly.p=Math.round((0.53+rng()*0.17)*100)/100;}
@@ -219,6 +222,6 @@ function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все
 const api={SAVE_VER,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
- initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
+ initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
 if(typeof module!=='undefined')module.exports=api;else root.G=api;
 })(this);
