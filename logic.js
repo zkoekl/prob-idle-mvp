@@ -30,6 +30,7 @@ const TAGS={fire:{ru:'Огонь',ic:'🔥',b2:'урон ×1.15',b3:'урон ×
 const TAG_K=Object.keys(TAGS);
 function tagCount(s,eq){eq=eq||[s.weapon,s.armor,s.charm];const c={};if(!s.unl||!s.unl.synergy)return c;for(const it of eq)if(it&&it.tag)c[it.tag]=(c[it.tag]||0)+1;return c;}
 function syn(s,tag,eq){return tagCount(s,eq)[tag]||0;}
+function retroTag(s){const all=[s.weapon,s.armor,s.charm,...(s.inv||[])].filter(Boolean);for(const it of all)if(it.tag===undefined)it.tag=it.r>=1?TAG_K[(it.id*2654435761>>>0)%TAG_K.length]:null;}
 function stashCap(s){return 6+s.stashUp*3;}
 function keptCount(s){return s.inv.filter(i=>i.kept).length;}
 function pieceChance(s,loc,slot,tag,N){const c=rarChances(s,loc);const pSlot=slot==='charm'?0.16:0.42;const p=pSlot*(1-c[0])/TAG_K.length;const k=rolls(s)*LOCS[loc].stages*N;return 1-Math.pow(1-p,k);}
@@ -51,7 +52,7 @@ function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards
  alloc:[0,0,0],inv:[],weapon:null,armor:null,charm:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
-function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});return n;}}catch(e){}return null;}
+function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});retroTag(n);return n;}}catch(e){}return null;}
 // --- hero
 function aff(s,k,eq){let v=setBonus(s,k);for(const it of (eq||[s.weapon,s.armor,s.charm])){if(it)for(const a of it.affixes)if(a.k===k)v+=a.v;}return v;}
 function itemPower(it){return Math.round(it.power*Math.pow(1.12,it.lvl||0));}
@@ -200,7 +201,7 @@ function secPass(s){const m=s.sec;if(!m)return null;if(m.i>=SEC_N-1)return secTa
 const DIVE={A:3,N:10,cost:8};
 function diveP(s){return Math.min(0.6,0.47+s.lensUp*0.005+(s.perks.luck||0)*0.01);}
 function ruinP(p,a,N){if(a<=0)return 1;if(a>=N)return 0;const q=1-p;if(Math.abs(p-q)<1e-9)return 1-a/N;const r=q/p;return(Math.pow(r,a)-Math.pow(r,N))/(1-Math.pow(r,N));}
-function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(12*k*k*LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths));}
+function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(9*k*k*LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths));}
 function diveStart(s){if(!s.unl.dive||s.dive||s.energy<DIVE.cost)return false;s.energy-=DIVE.cost;s.dive={x:DIVE.A,path:[DIVE.A],p:diveP(s)};return true;}
 function diveStep(s,rng=Math.random){const d=s.dive;if(!d)return null;d.x+=rng()<d.p?1:-1;d.path.push(d.x);
  if(d.x<=0){s.dive=null;s.diveStats.n++;s.diveStats.ruin++;return{end:'ruin'};}
@@ -296,6 +297,6 @@ function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все
 const api={SAVE_VER,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
- initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
+ initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
 if(typeof module!=='undefined')module.exports=api;else root.G=api;
 })(this);

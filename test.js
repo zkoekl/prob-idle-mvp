@@ -59,8 +59,9 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
   const s2=base();for(let i=0;i<2000;i++){s2.kelly.tokens=1;G.kellyBet(s2,G.kellyOpt(s2.kelly.p));}assert(s2.gold<=1e5+2000*G.kellyCap(s2),'kelly opt bounded');console.log('kelly 2000 bets gain',Math.round(s2.gold-1e5),'cap/bet',G.kellyCap(s2));}
  // dive: exact optimal EV per energy (DP over cash-out) vs. normal runs' gold per energy
  {const s=base();const p=G.diveP(s),N=G.DIVE.N;let V=new Array(N+1).fill(0);for(let it=0;it<500;it++){const W=V.slice();for(let x=1;x<N;x++)W[x]=Math.max(x>G.DIVE.A?G.diveCash(s,x):0,p*(x+1===N?G.diveCash(s,N)+G.itemValue(s,2,4):V[x+1])+(1-p)*V[x-1]);V=W;}
-  const dive=V[G.DIVE.A]/G.DIVE.cost;const run=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);console.log('gold/energy dive',dive.toFixed(1),'runs',run.toFixed(1));assert(dive<run*2,'dive not a farm');}
+  const dive=V[G.DIVE.A]/G.DIVE.cost;const run=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);console.log('gold/energy dive',dive.toFixed(1),'runs',run.toFixed(1));assert(dive<run,'dive below runs');}
  // event triggers (monty/mimic/merchant/deck) are tied to runs: rewards per run bounded
  {const s=base();let g0=s.gold,items=0;for(let i=0;i<500;i++){G.maybeMonty(s,Math.random,true);G.montyPick(s,0);G.montyFinal(s,G.montyClosed(s.monty.pending)[0]);G.montyClear(s);G.drawCard(s,2);}
   assert((s.gold-g0)/500<50*G.LOCS[2].lvl,'events bounded per run');}}
+{const o=G.newState();o.ver=9;o.inv=[{id:5,slot:'weapon',r:2,rarity:'rare',loc:0,power:3,lvl:0,affixes:[],value:1}];const l=G.load(JSON.stringify(o));assert(l.inv[0].tag&&G.TAG_K.includes(l.inv[0].tag),'retrotag');}
 console.log('TESTS OK');

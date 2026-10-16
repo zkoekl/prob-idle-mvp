@@ -17,9 +17,11 @@ function toast(t){const d=document.createElement('div');d.className='toast';d.te
 function afText(it){return it.affixes.map(a=>`+${a.v}${AFRU[a.k].unit} ${AFRU[a.k].ru}`).join(' · ');}
 function itemHtml(it,btns,pop){const pw=it.slot==='charm'?'':` ${it.slot==='weapon'?'⚔️':'🛡️'}${G.itemPower(it)}${it.lvl?` (+${it.lvl})`:''}`;
  return `<div class="item ${it.rarity}${pop?' pop':''}" ${pop?`style="animation-delay:${pop*0.12}s"`:''}>${ART.icon(it.slot,it.rarity,it.id)}<div class="txt">${it.fresh&&!pop?'<span class="badge">NEW</span> ':''}<span class="r-${it.rarity}">${it.name}</span> <small>${G.RAR_RU[it.rarity]}</small>${pw}<div class="af">${S.unl.synergy&&it.tag?`<span class="tag t-${it.tag}">${G.TAGS[it.tag].ic} ${G.TAGS[it.tag].ru}</span> `:''}${it.kept?'📦 ':''}${afText(it)||'без свойств'}</div></div><div class="btns">${btns||''}</div></div>`;}
-function isBetter(i){if(!S.unl.synergy)return !S[i.slot]||G.score(i)>G.score(S[i.slot]);const eq=[S.weapon,S.armor,S.charm];eq[{weapon:0,armor:1,charm:2}[i.slot]]=i;return !S[i.slot]||G.heroPower(S,eq)>G.heroPower(S);}
+let RC=null;function rc(){if(!RC)RC={base:G.heroPower(S),dp:new Map()};return RC;}
+function powDelta(i){const c=rc();if(c.dp.has(i.id))return c.dp.get(i.id);const eq=[S.weapon,S.armor,S.charm];eq[{weapon:0,armor:1,charm:2}[i.slot]]=i;const d=G.heroPower(S,eq)-c.base;c.dp.set(i.id,d);return d;}
+function isBetter(i){if(!S[i.slot])return true;if(!S.unl.synergy)return G.score(i)>G.score(S[i.slot]);return powDelta(i)>0;}
 function synPreview(it){if(!S.unl.synergy||!it.tag)return'';const eq=[S.weapon,S.armor,S.charm];const idx={weapon:0,armor:1,charm:2}[it.slot];const now=G.syn(S,it.tag);eq[idx]=it;const n=G.syn(S,it.tag,eq);
- const dp=G.heroPower(S,eq)-G.heroPower(S);let t=`<span class="delta ${dp>0?'good':dp<0?'bad':''}">сила ${dp>=0?'+':''}${dp}</span>`;
+ const dp=powDelta(it);let t=`<span class="delta ${dp>0?'good':dp<0?'bad':''}">сила ${dp>=0?'+':''}${dp}</span>`;
  if(n>now&&n>=2)t+=` <span class="badge syn">${G.TAGS[it.tag].ic} ${n}/3: ${n>=3?G.TAGS[it.tag].b3:G.TAGS[it.tag].b2}</span>`;return t;}
 function cmp(it){if(S.unl.synergy)return synPreview(it)||'';const c=S[it.slot];if(!c)return '<span class="delta good">слот пуст</span>';const d=Math.round(G.score(it)-G.score(c));
  return d>0?`<span class="badge better" title="Сравнение с надетым">▲ лучше +${d}</span>`:`<span class="delta bad" title="Сравнение с надетым">▼ ${d}</span>`;}
@@ -60,25 +62,26 @@ function runEval(){const rows=[{name:'Ваш расклад',a:S.alloc.slice(),y
   h+=`<tr class="${r.you?'you':''}"><td>${r.name}</td><td>${sn}</td><td>${fmt(m.mean)}</td><td>${fmt(m.p10)}</td><td>${fmt(m.p50)}</td><td>${fmt(m.p90)}</td><td>${pct(m.death)}</td></tr>`;}
  const mx=Math.max(...y.bins);
  $('eval').innerHTML=`<div class="hint">Ваш расклад: распределение золота за поход (0…${fmt(y.max)}), красный — ноль</div><div class="hist">${y.bins.map((b,i)=>`<i class="${i?'':'z'}" style="height:${b/mx*100}%"></i>`).join('')}</div>${h}</table>`;}
-function render(){header();const U=S.unl;$('win').hidden=!S.won||S.winHidden;
+function render(){RC=null;header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
  const slot=(k)=>{const it=S[k];if(!it)return '';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
   const can=U.shop&&it.slot!=='charm'&&it.lvl<10;
   const info=p<1?`<br><small>шанс ${pct(p)}${G.enhDown(it.lvl)?' · провал: −1 ур.':''} · ≈${G.expTries(it.lvl,S.useScroll&&S.scrolls>0).toFixed(1)} попыт.</small>`:'';
   return itemHtml(it,can?`<button class="small" data-up="${k}" ${S.gold>=c.gold&&S.mats>=c.mats?'':'disabled'} title="Улучшить снаряжение">⬆ +${it.lvl+1}: ${fmt(c.gold)}💰 ${fmt(c.mats)}🔩${info}</button>`:'');};
- $('hero').innerHTML=`<div class="herobox ${S.run&&!S.run.waiting?'walking':''}">${ART.hero()}<div><b>Герой, ур. ${S.lvl}</b><br>⚔️ ${G.heroDmg(S)} · ❤️ ${G.heroHp(S)}<br><span title="Сила = урон + HP/4; открывает локации">💪 Сила ${G.heroPower(S)}</span><br><small>Походов ${S.runs}${S.deaths?`, гибелей ${S.deaths}`:''}</small></div>
+ if(act('hero'))$('hero').innerHTML=`<div class="herobox ${S.run&&!S.run.waiting?'walking':''}">${ART.hero()}<div><b>Герой, ур. ${S.lvl}</b><br>⚔️ ${G.heroDmg(S)} · ❤️ ${G.heroHp(S)}<br><span title="Сила = урон + HP/4; открывает локации">💪 Сила ${G.heroPower(S)}</span><br><small>Походов ${S.runs}${S.deaths?`, гибелей ${S.deaths}`:''}</small></div>
  ${(S.weapon||S.armor||S.charm)?`<div class="slots">${slot('weapon')}${slot('armor')}${slot('charm')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
  synHtml()+(U.pity&&S.shards>=G.SHARDS_FOR_PITY?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
- renderTabs();renderKelly();renderRebirth();$('snd').textContent=S.sound?'🔊':'🔇';
- renderRun();renderChips();renderMonty();renderDeck();renderSec();renderDive();applyColl();renderMimic();renderStats();renderSets();
- $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];renderGuides();renderHowto();
+ renderTabs();if(act('games')){renderKelly();renderDeck();renderDive();renderGuides();}if(act('stats')){renderRebirth();renderStats();renderSets();renderHowto();}$('snd').textContent=S.sound?'🔊':'🔇';
+ renderRun();renderChips();renderMonty();renderSec();applyColl();renderMimic();
+ $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];
  $('locCard').hidden=!U.locs;
  if(U.locs)$('locs').innerHTML=G.LOCS.map((l,i)=>{const u=G.unlocked(S,i);const why=!S.cleared.includes(i-1)?'пройдите предыдущую до конца':`нужна сила ${G.locReq(S,i)}`;
   return `<button class="loc ${S.loc===i?'sel':''}" data-loc="${i}" ${u&&!S.run?'':'disabled'}>${ART.loc(i)}<span><b>${u?'':'🔒 '}${l.name}</b>${S.cleared.includes(i)?' ✅':''}<br><small>${l.stages} этапа · угроза ${G.locThreat(S,i)}${u?'':' · '+why}</small></span></button>`}).join('');
  $('autoeq').classList.toggle('nudge',S.inv.some(isBetter));
- const inv=S.inv.slice().sort((a,b)=>b.r-a.r||G.score(b)-G.score(a));$('disAll').hidden=!U.shop;
+ if(act('hero')){const inv=S.inv.slice().sort((a,b)=>b.r-a.r||G.score(b)-G.score(a));$('disAll').hidden=!U.shop;
  $('inv').innerHTML=(inv.length>40?`<div class="hint">Показаны 40 лучших из ${inv.length}.</div>`:'')+(inv.length?inv.slice(0,40).map(it=>itemHtml(it,cmp(it)+`<button class="small" data-eq="${it.id}">Надеть</button>${U.synergy?`<button class="small" data-keep="${it.id}" title="Тайник: не продаётся">${it.kept?'📦 ✓':'📦'}</button>`:''}${U.shop&&!it.kept?`<button class="small" data-dis="${it.id}">Продать ${fmt(it.value)}💰</button>`:''}`)).join(''):'<div class="hint">Пусто — сходите в поход!</div>');
+ }
  $('shopCard').hidden=!U.shop;
- if(U.shop){const sh=[['hp','❤️','+12 HP',`ур. ${S.hpUp}`],['dmg','⚔️','+3 урона',`ур. ${S.dmgUp}`],['maxE','⚡','+10 макс. энергии',`${G.maxEnergy(S)}`],
+ if(U.shop&&act('shop')){const sh=[['hp','❤️','+12 HP',`ур. ${S.hpUp}`],['dmg','⚔️','+3 урона',`ур. ${S.dmgUp}`],['maxE','⚡','+10 макс. энергии',`${G.maxEnergy(S)}`],
   ['regen','⏱️','Быстрее энергия',`${G.regenSec(S).toFixed(1)}с за ед.`],['boots','👢','Сапоги: походы быстрее',`ур. ${S.bootsUp}`],['bag','🎒','Сумка: +1 предмет за этап',`${G.rolls(S)} предм.`],
   ['chips','🎲','+1 фишка удачи',`${S.chips}`],['guide','G','Проводник: −3% риска',`ур. ${S.guideUp}`],['lens','🔍','Линза: +5% к редким',`ур. ${S.lensUp}`],['doors','C','+1 сундук у проводника',`${G.doors(S)}`],['stash','📦','Тайник: +3 места',`${G.stashCap(S)} мест`],['scroll','📜','Свиток защиты (от понижения)',`есть ${S.scrolls}`],['bayes','📘','Книга Байеса: показывает вероятность мимика',S.bayesUp?'куплено':'']];
   $('shop').innerHTML=sh.filter(x=>G.shopAvail(S,x[0])).map(([k,ic,n,cur])=>{const c=G.SHOP[k](S);const icon=ic==='G'?ART.compass():ic==='C'?ART.chest():`<span style="font-size:1.5rem">${ic}</span>`;
