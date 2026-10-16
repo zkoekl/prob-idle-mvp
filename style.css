@@ -93,3 +93,10 @@ button.t2{border:2px solid var(--epic);background:#f5eefb}
 body.shake main{animation:shake .4s}@keyframes shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 body{font-size:16px;line-height:1.35}.hint{font-size:.82rem}small{font-size:.78rem}
+
+h2.coll{cursor:pointer;user-select:none}h2.coll::after{content:'▾';float:right;color:#aaa;transition:transform .2s}
+section.collapsed>:not(h2){display:none!important}section.collapsed h2.coll::after{transform:rotate(-90deg)}section.collapsed h2{margin:0}
+.divesvg{width:100%;max-height:110px;background:linear-gradient(#eef4fc,#dfe9f6 70%,#fff0dc);border-radius:10px;margin-bottom:6px}
+
+.locgrid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px}.locart{height:42px}.loc span{padding:4px 6px;font-size:.75rem}
+.winc{padding:8px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}

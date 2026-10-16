@@ -56,7 +56,7 @@ function runEval(){const rows=[{name:'Ваш расклад',a:S.alloc.slice(),y
   h+=`<tr class="${r.you?'you':''}"><td>${r.name}</td><td>${sn}</td><td>${fmt(m.mean)}</td><td>${fmt(m.p10)}</td><td>${fmt(m.p50)}</td><td>${fmt(m.p90)}</td><td>${pct(m.death)}</td></tr>`;}
  const mx=Math.max(...y.bins);
  $('eval').innerHTML=`<div class="hint">Ваш расклад: распределение золота за поход (0…${fmt(y.max)}), красный — ноль</div><div class="hist">${y.bins.map((b,i)=>`<i class="${i?'':'z'}" style="height:${b/mx*100}%"></i>`).join('')}</div>${h}</table>`;}
-function render(){header();const U=S.unl;$('win').hidden=!S.won;
+function render(){header();const U=S.unl;$('win').hidden=!S.won||S.winHidden;
  const slot=(k)=>{const it=S[k];if(!it)return '';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
   const can=U.shop&&it.slot!=='charm'&&it.lvl<10;
   const info=p<1?`<br><small>шанс ${pct(p)}${G.enhDown(it.lvl)?' · провал: −1 ур.':''} · ≈${G.expTries(it.lvl,S.useScroll&&S.scrolls>0).toFixed(1)} попыт.</small>`:'';
@@ -65,7 +65,7 @@ function render(){header();const U=S.unl;$('win').hidden=!S.won;
  ${(S.weapon||S.armor||S.charm)?`<div class="slots">${slot('weapon')}${slot('armor')}${slot('charm')}</div>`:''}</div>`+(U.enhance?`<div class="row"><label class="hint"><input type="checkbox" id="useScroll" ${S.useScroll?'checked':''}> тратить свиток защиты при риске понижения (свитков: ${S.scrolls})</label></div>`:'')+
  (U.pity&&S.shards>=G.SHARDS_FOR_PITY?`<div class="row"><button id="pity" class="big">💎 Создать легендарку</button></div>`:'');
  renderTabs();renderKelly();renderRebirth();$('snd').textContent=S.sound?'🔊':'🔇';
- renderRun();renderChips();renderMonty();renderDeck();renderSec();renderMimic();renderStats();renderSets();
+ renderRun();renderChips();renderMonty();renderDeck();renderSec();renderDive();applyColl();renderMimic();renderStats();renderSets();
  $('autosell').hidden=!U.shop;$('autosell').textContent='Автопродажа: '+['выкл','обычные','≤ необычные','≤ редкие'][S.autoSell];renderGuides();renderHowto();
  $('locCard').hidden=!U.locs;
  if(U.locs)$('locs').innerHTML=G.LOCS.map((l,i)=>{const u=G.unlocked(S,i);const why=!S.cleared.includes(i-1)?'пройдите предыдущую до конца':`нужна сила ${G.locReq(S,i)}`;
@@ -124,6 +124,14 @@ function renderSec(){const m=S.sec;$('secCard').hidden=!m;if(!m)return;const it=
  $('sec').innerHTML=`<div>Странник показывает товары по одному: <b>${m.i+1} из ${G.SEC_N}</b>. Можно забрать один бесплатно — но вернуться к пропущенному нельзя.</div>${itemHtml(it)}
  <div class="hint">Ценность: <b>${sc}</b> · лучшая из виденных: ${sb<0?'—':Math.round(sb)} ${sb>=0&&sc>sb?'<b class="good">— это лучше всех до сих пор!</b>':''}</div>
  <div class="row"><button id="secTake" class="ok">Забрать</button><button id="secPass" ${m.i>=G.SEC_N-1?'disabled':''}>Дальше ➡️</button></div>`;}
+function renderDive(){$('diveCard').hidden=!S.unl.dive;if(!S.unl.dive)return;const d=S.dive,D=G.DIVE;const p=d?d.p:G.diveP(S);const x=d?d.x:D.A;const ru=G.ruinP(p,x,D.N);
+ const path=d?d.path:[D.A];const w=260,hgt=70,n=Math.max(12,path.length);const pts=path.map((v,i)=>`${(i/(n-1))*w},${(v/D.N)*hgt}`).join(' ');
+ $('dive').innerHTML=`<svg viewBox="-4 -4 ${w+8} ${hgt+8}" class="divesvg"><rect x="-4" y="${hgt-2}" width="${w+8}" height="6" fill="#f08a0055"/><rect x="-4" y="-4" width="${w+8}" height="5" fill="#d9534f33"/>
+ <polyline points="${pts}" fill="none" stroke="#2f7fd8" stroke-width="2.5" stroke-linejoin="round"/>${d?`<circle cx="${((path.length-1)/(n-1))*w}" cy="${(x/D.N)*hgt}" r="4.5" fill="#2f7fd8"/>`:''}</svg>
+ <div class="kv"><span>Глубина</span><b>${x} / ${D.N}</b><span>Шаг вниз</span><b>${pct(p)}</b><span>Дойти до дна</span><b class="good">${pct(1-ru)}</b><span>Вынесет наверх (разорение)</span><b class="bad">${pct(ru)}</b>
+ <span>Забрать сейчас</span><b>${fmt(G.diveCash(S,x))}💰</b><span>Награда на дне</span><b>легендарка + ${fmt(G.diveCash(S,D.N))}💰</b></div>
+ <div class="row">${d?`<button id="dstep" class="big">⬇️ Шаг</button><button id="dcash" class="ok" ${x<=D.A?'disabled':''}>Забрать</button>`:`<button id="dstart" class="big" ${S.energy<D.cost?'disabled':''}>Спуститься (⚡${D.cost})</button>`}</div>
+ <div class="hint">Погружений: ${S.diveStats.n}, до дна: ${S.diveStats.top}, разорений: ${S.diveStats.ruin}. Шаг вниз чуть менее вероятен, чем вверх — поэтому дно редкость.</div>`;}
 function celebrate(){if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;document.body.classList.remove('shake');void document.body.offsetWidth;document.body.classList.add('shake');
  const cols=['#f08a00','#ffd166','#8e44c9','#2f7fd8','#3fa34d'];for(let i=0;i<36;i++){const e=document.createElement('i');e.className='confetti';e.style.left=Math.random()*100+'vw';
   e.style.background=cols[i%5];e.style.animationDelay=Math.random()*0.3+'s';e.style.setProperty('--dx',(Math.random()*120-60)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),2000);}}
@@ -171,13 +179,19 @@ function stage(){const lvl0=S.lvl;const r=G.rollStage(S);if(!r)return;lootSound(
  showReport(h);unlocks();checkWin();render();}
 document.addEventListener('change',e=>{if(e.target.id==='useScroll'){S.useScroll=e.target.checked;render();}});
 document.addEventListener('input',e=>{if(e.target.id==='kf'){S.kf=+e.target.value;const y=window.scrollY;renderKelly();const k=$('kf');if(k)k.focus();}});
+function applyColl(){document.querySelectorAll('main section.card[id]').forEach(el=>{if(el.id==='runCard')return;el.classList.toggle('collapsed',!!S.coll[el.id]);const h=el.querySelector('h2');if(h)h.classList.add('coll');});}
+document.addEventListener('click',e=>{const hh=e.target.closest('h2.coll');if(hh&&!e.target.closest('.tip')){const id=hh.closest('section').id;S.coll[id]=!S.coll[id];applyColl();save();return;}});
 document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){MQ.push(TIPS[tp.dataset.tip]);showModal();return;}
  const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
  if(d.loc!==undefined){S.loc=+d.loc;$('eval').innerHTML='';}
  else if(d.p!==undefined){if(usedChips()<S.chips)S.alloc[+d.p]++;$('eval').innerHTML='';}
  else if(d.m!==undefined){if(S.alloc[+d.m]>0)S.alloc[+d.m]--;$('eval').innerHTML='';}
  else if(d.door!==undefined){const p=S.monty.pending;const i=+d.door;if(p.pick===null)G.montyPick(S,i);else if(!p.done&&(i===p.pick||G.montyClosed(p).includes(i)||(p.revealed&&i===p.prize)))G.montyFinal(S,i);}
+ else if(b.id==='winx')S.winHidden=1;
  else if(b.id==='mclose')G.montyClear(S);
+ else if(b.id==='dstart')G.diveStart(S);
+ else if(b.id==='dstep'){const r=G.diveStep(S);if(r.end==='ruin'){beep(150,0.3);showReport('<p class="bad">🕳️ Вынесло наверх — погружение сорвалось.</p>');}else if(r.end==='top')showReport(`<p class="good">🏆 Дно! +${fmt(r.gold)}💰</p>${itemHtml(r.item,'',1)}`);else beep(r?440:0,0.05);}
+ else if(b.id==='dcash'){const r=G.diveCashOut(S);if(r)showReport(`<p class="good">Забрали с глубины ${r.x}: +${fmt(r.gold)}💰</p>`);}
  else if(b.id==='secTake'||b.id==='secPass'){const r=b.id==='secTake'?G.secTake(S):G.secPass(S);if(r&&r!=='next')showReport(`<p>Вы взяли товар №${r.all.indexOf(r.it)+1}: он ${r.rank===1?'<b class="good">лучший из всех 8!</b>':`${r.rank}-й по ценности из 8.`}</p>${itemHtml(r.it,'',1)}<p class="hint">Стратегия «1/e»: пропустить первые ~3 и взять первый, кто лучше всех виденных — так лучший достаётся ~40% раз.</p>`);}
  else if(b.id==='knock'){G.knock(S);}
  else if(b.id==='mopen'||b.id==='mleave'){const r=G.resolveMimic(S,b.id==='mopen');mimicReport(r);}

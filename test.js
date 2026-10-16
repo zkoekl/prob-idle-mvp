@@ -45,4 +45,6 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  let best=0;for(let t=0;t<3000;t++){const q=G.newState();q.unl.secretary=1;G.maybeSecretary(q,Math.random,true);let r;
   while(q.sec){const cur=G.score(G.secCur(q));if(q.sec.i>=3&&cur>G.secSeenBest(q)){r=G.secTake(q);}else r=G.secPass(q);} if(r&&r.rank===1)best++;}
  console.log('secretary best rate',(best/3000).toFixed(3));assert(best/3000>0.3,'sec');}
+{assert(Math.abs(G.ruinP(0.5,3,10)-0.7)<1e-9,'ruin fair');let ru=0;for(let i=0;i<20000;i++){let x=3;while(x>0&&x<10)x+=Math.random()<0.47?1:-1;if(x===0)ru++;}
+ assert(Math.abs(ru/20000-G.ruinP(0.47,3,10))<0.015,'ruin mc');const d=G.newState();d.unl.dive=1;d.energy=20;assert(G.diveStart(d)&&d.energy===12,'dive');let r;while(d.dive)r=G.diveStep(d);assert(r.end,'dive end');}
 console.log('TESTS OK');

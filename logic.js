@@ -1,6 +1,6 @@
 // Pure game logic v4 (browser + node). No DOM here.
 (function(root){
-const SAVE_VER=8;
+const SAVE_VER=9;
 const RARS=['common','uncommon','rare','epic','legendary'];
 const RAR_RU={common:'Обычный',uncommon:'Необычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный'};
 const RAR_W=[600,260,100,32,8];        // base weights for a normal drop roll
@@ -32,14 +32,14 @@ function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*
 const UNLOCKS=[
  {k:'shop',need:s=>s.runs>=8},{k:'chips',need:s=>s.runs>=16},{k:'stages',need:s=>s.runs>=20},{k:'stats',need:s=>s.runs>=22},
  {k:'locs',need:s=>s.runs>=24&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=27},{k:'sets',need:s=>s.runs>=29},{k:'monty',need:s=>s.runs>=32},{k:'enhance',need:s=>[s.weapon,s.armor].some(i=>i&&i.lvl>=4)},
- {k:'thresh',need:s=>s.runs>=37},{k:'mimic',need:s=>s.runs>=41},{k:'deck',need:s=>s.runs>=44},{k:'offline',need:s=>s.runs>=46},{k:'eval',need:s=>s.runs>=48},{k:'variants',need:s=>s.monty.plays>=8},{k:'secretary',need:s=>s.runs>=55},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
+ {k:'thresh',need:s=>s.runs>=37},{k:'mimic',need:s=>s.runs>=41},{k:'deck',need:s=>s.runs>=44},{k:'offline',need:s=>s.runs>=46},{k:'eval',need:s=>s.runs>=48},{k:'variants',need:s=>s.monty.plays>=8},{k:'dive',need:s=>s.runs>=52},{k:'secretary',need:s=>s.runs>=55},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
 function newState(){return{ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
  chips:2,hpUp:0,dmgUp:0,maxEUp:0,regenUp:0,guideUp:0,lensUp:0,bagUp:0,bootsUp:0,doorsUp:0,
  alloc:[0,0,0],inv:[],weapon:null,armor:null,charm:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
- autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
+ autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
  monty:{pending:null,since:0,plays:0,stats:{stay:[0,0],switch:[0,0]},guides:null,guess:{}}};}
 function load(raw){try{const s=JSON.parse(raw);if(s&&s.ver>=4&&s.ver<=SAVE_VER){const n=Object.assign(newState(),s,{ver:SAVE_VER});n.stats=Object.assign(newState().stats,s.stats||{});return n;}}catch(e){}return null;}
 // --- hero
@@ -154,7 +154,7 @@ const ACH=[{k:'first',ru:'Первый поход',need:s=>s.runs>=1},{k:'leg1',
  {k:'switch10',ru:'Монти одобряет: 10 побед сменой',need:s=>s.monty.stats.switch[0]>=10},{k:'guides',ru:'Детектив: разгаданы все проводники',need:s=>Object.values(s.monty.guess).filter(x=>x==='ok').length>=3},
  {k:'set1',ru:'Коллекционер: собрана коллекция',need:s=>Object.values(s.sets).some(a=>a.length>=5)},{k:'plus8',ru:'Кузнец: снаряжение +8',need:s=>[s.weapon,s.armor].some(i=>i&&i.lvl>=8)},
  {k:'kelly',ru:'Инвестор: 10 ставок Келли в плюс',need:s=>s.kelly.bets>=10&&s.kelly.profit>0},{k:'lucky',ru:'Баловень судьбы: легендарок больше ожидаемого (≥5)',need:s=>s.stats.rolls[4]>=5&&s.stats.rolls[4]>s.stats.exp[4]},
- {k:'pity',ru:'Терпение: легендарка из осколков',need:s=>(s.pityUsed||0)>=1},{k:'sec',ru:'Принцесса выбрала: лучший из 8 у странника',need:s=>s.secStats.best>=1},{k:'deck',ru:'Колода пуста: перетасовка',need:s=>(s.deckDone||0)>=1}];
+ {k:'pity',ru:'Терпение: легендарка из осколков',need:s=>(s.pityUsed||0)>=1},{k:'sec',ru:'Принцесса выбрала: лучший из 8 у странника',need:s=>s.secStats.best>=1},{k:'dive',ru:'Дно достигнуто: глубокое погружение',need:s=>s.diveStats.top>=1},{k:'deck',ru:'Колода пуста: перетасовка',need:s=>(s.deckDone||0)>=1}];
 function checkAch(s){const out=[];for(const a of ACH)if(!s.ach[a.k]&&a.need(s)){s.ach[a.k]=Date.now();out.push(a);}return out;}
 // --- event deck (hypergeometric): 12 cards per location, drawn without replacement, one per banked run
 const DECK=[{k:'leg',n:1,ru:'Сокровище (легендарка)'},{k:'epic',n:2,ru:'Эпический тайник'},{k:'gold',n:4,ru:'Кошель золота'},{k:'shard',n:2,ru:'Осколки ×5'},{k:'trap',n:3,ru:'Ловушка (−5⚡)'}];
@@ -178,6 +178,17 @@ function secSeenBest(s){const m=s.sec;return m.i?Math.max(...m.items.slice(0,m.i
 function secTake(s){const m=s.sec;if(!m)return null;const it=m.items[m.i];s.inv.push(it);it.fresh=true;const rank=1+m.items.filter(x=>score(x)>score(it)).length;
  s.secStats.n++;if(rank===1)s.secStats.best++;s.sec=null;return{it,rank,all:m.items};}
 function secPass(s){const m=s.sec;if(!m)return null;if(m.i>=SEC_N-1)return secTake(s);m.i++;return 'next';}
+// --- deep dive: random walk, gambler's ruin. Start at A, step +1 w.p. p else -1; reach N = treasure, 0 = ruin; cash out anytime
+const DIVE={A:3,N:10,cost:8};
+function diveP(s){return Math.min(0.6,0.47+s.lensUp*0.005+(s.perks.luck||0)*0.01);}
+function ruinP(p,a,N){if(a<=0)return 1;if(a>=N)return 0;const q=1-p;if(Math.abs(p-q)<1e-9)return 1-a/N;const r=q/p;return(Math.pow(r,a)-Math.pow(r,N))/(1-Math.pow(r,N));}
+function diveCash(s,x){const k=Math.max(0,x-DIVE.A);return Math.round(12*k*k*LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths));}
+function diveStart(s){if(!s.unl.dive||s.dive||s.energy<DIVE.cost)return false;s.energy-=DIVE.cost;s.dive={x:DIVE.A,path:[DIVE.A],p:diveP(s)};return true;}
+function diveStep(s,rng=Math.random){const d=s.dive;if(!d)return null;d.x+=rng()<d.p?1:-1;d.path.push(d.x);
+ if(d.x<=0){s.dive=null;s.diveStats.n++;s.diveStats.ruin++;return{end:'ruin'};}
+ if(d.x>=DIVE.N){s.dive=null;s.diveStats.n++;s.diveStats.top++;const it=makeItem(s,Math.max(0,...s.cleared),4,rng);it.fresh=true;s.inv.push(it);const g=diveCash(s,DIVE.N);s.gold+=g;return{end:'top',item:it,gold:g};}
+ return{end:null};}
+function diveCashOut(s){const d=s.dive;if(!d)return null;const g=diveCash(s,d.x);s.gold+=g;s.dive=null;s.diveStats.n++;return{end:'cash',gold:g,x:d.x};}
 // --- offline progress: safe 1-stage runs on best cleared location + Poisson events
 const OFF_CAP=30, LAMBDA={merchant:0.8,boss:0.4}; // events per hour
 function poissonP(k,l){let f=1;for(let i=2;i<=k;i++)f*=i;return Math.exp(-l)*Math.pow(l,k)/f;}
@@ -207,7 +218,7 @@ const PERKS=[{k:'luck',ru:'Удачливый: +10% к шансам редких
  {k:'shards2',ru:'Терпеливый: осколки ×2',t2:1},{k:'seer',ru:'Ясновидец: иногда видно один пустой сундук у нечестных проводников',t2:1}];
 function perksAvail(s){return PERKS.filter(p=>!p.t2||s.rebirths>=2);}
 function rebirth(s,perk){if(!s.won||!perksAvail(s).find(p=>p.k===perk))return false;const keep={unl:s.unl,stats:s.stats,sets:s.sets,monty:s.monty,perks:s.perks,rebirths:s.rebirths+1,
- kelly:s.kelly,playMs:s.playMs,ach:s.ach,secStats:s.secStats,deckDone:s.deckDone,pityUsed:s.pityUsed,autoSell:s.autoSell,sound:s.sound,tab:'run',bayesUp:s.bayesUp,nextId:s.nextId,deaths:s.deaths};
+ kelly:s.kelly,playMs:s.playMs,ach:s.ach,secStats:s.secStats,diveStats:s.diveStats,coll:s.coll,deckDone:s.deckDone,pityUsed:s.pityUsed,autoSell:s.autoSell,sound:s.sound,tab:'run',bayesUp:s.bayesUp,nextId:s.nextId,deaths:s.deaths};
  keep.perks[perk]=(keep.perks[perk]||0)+1;const n=Object.assign(newState(),keep);n.runs=0;n.chips=2+(keep.perks.chips||0);n.lastSeen=Date.now();n.energyT=Date.now();
  n.monty.pending=null;Object.keys(s).forEach(k=>delete s[k]);Object.assign(s,n);return true;}
 // --- Monty Hall chests
@@ -266,6 +277,6 @@ function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все
 const api={SAVE_VER,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
- initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
+ initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
 if(typeof module!=='undefined')module.exports=api;else root.G=api;
 })(this);
