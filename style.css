@@ -176,3 +176,4 @@ html{background:#16191f}.stance button small{display:block}.stance button{font-s
 .pin:disabled{opacity:.5}.pin.sel:disabled{opacity:1}
 .tier{grid-template-columns:minmax(78px,max-content) 1fr auto}.tier b{white-space:nowrap}
 @media(min-width:521px){.chip{grid-template-columns:minmax(110px,max-content) 1fr auto}}.chip{border-color:var(--line)}
+.dpol button.big small,.nodebtn small{color:#3b2f14}.dpol button.sel small{color:var(--ink)}

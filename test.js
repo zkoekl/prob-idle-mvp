@@ -100,4 +100,7 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  const m=G.newState();m.unl={monty:1};let b=0;for(let i=0;i<2000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true,2);const p=m.monty.pending;G.montyPick(m,p.prize);if(!p.done)G.montyFinal(m,p.pick);if(p.bonus)b++;}assert(b>500&&b<1100,'route bonus '+b);}
 {const m=G.newState();m.unl={monty:1};m.doorsUp=2;let w=0,n=0;for(let i=0;i<4000;i++){m.monty.pending=null;G.maybeMonty(m,Math.random,true);const p=m.monty.pending;p.steps=true;G.montyPick(m,0);let g=0;while(p.stepMode&&g++<10)G.montyStep(m,p.pick);G.montyFinal(m,G.montyClosed(p)[0]);n++;if(p.win)w++;}
  console.log('step-by-step stay-then-switch',(w/n).toFixed(3),'expected',(4/5).toFixed(3));assert(Math.abs(w/n-0.8)<0.03,'steps');}
+{const s=G.newState();s.unl={stages:1,dive:1};s.cleared=[0];s.stance=2;s.energy=99;G.startRun(s);let tagged=0,n=0,bonus=0;for(let i=0;i<400;i++){s.run.waiting=false;const r=G.rollStage(s,Math.random);if(!s.run){G.startRun(s);s.energy=99;continue;}if(r.bonusRoll)bonus++;r.drops.forEach(d=>{n++;if(d.tag)tagged++;});s.run.waiting=false;}
+ assert(n&&tagged===n,'risky items tagged');assert(bonus>60&&bonus<180,'risky bonus roll '+bonus);
+ const d=G.newState();d.unl={dive:1,stages:1};d.energy=50;G.startRun(d);d.run.waiting=true;assert(G.diveRoute(d)&&d.energy===50-G.runCost(d,0),'route dive free');d.dive.pot.gold=77;G.diveCashOut(d);assert(d.run.cash===77&&d.gold===0,'route dive pays into bag');}
 console.log('TESTS OK');
