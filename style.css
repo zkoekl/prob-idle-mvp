@@ -132,7 +132,7 @@ section.collapsed>:not(h2){display:none!important}section.collapsed h2.coll::aft
 :root{--bg:#1b1f27;--card:#252a34;--card2:#2d3340;--ink:#e9e4d8;--mut:#9aa0ab;--gold:#d8b25a;--line:#3a4150;--common:#a9adb5;--uncommon:#5cc46a;--rare:#5aa2f0;--epic:#b77be6;--legendary:#f2a03a}
 body{background:radial-gradient(ellipse at top,#262c38,#16191f 70%) fixed;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4}
 h1,h2,h3,.logo,.runmain b{font-family:Georgia,"Palatino Linotype","Book Antiqua",serif;letter-spacing:.2px}
-header{background:#12151bee;backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+header{background:#12151b;border-bottom:1px solid var(--line)}
 h1{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-weight:600}.hbtns{display:flex;gap:6px}
 button.icon{background:transparent;border:1px solid var(--line);color:var(--ink);min-width:36px}button.icon.sel{border-color:var(--gold);color:var(--gold)}
 .card{background:var(--card);border:1px solid var(--line);box-shadow:0 2px 10px #0004;border-radius:14px}
@@ -166,3 +166,5 @@ table{border-collapse:collapse}td,th{border-color:var(--line)!important}tr.you{b
 .node{min-width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--card2);border:1px solid var(--line);font-size:.85rem;padding:0 4px}
 .node.done{border-color:#3c7d4a;background:#22352a}.node.next{border:2px solid var(--gold);box-shadow:0 0 8px #d8b25a55}
 .nodes{display:grid;grid-template-columns:1fr 1fr;gap:6px}.nodebtn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}.nodebtn small{color:#3b2f14;font-weight:400}
+html{background:#16191f}.stance button small{display:block}.stance button{font-size:.8rem}
+.door span{color:#3a2f1b;font-weight:600}
