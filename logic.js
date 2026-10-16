@@ -80,7 +80,7 @@ function expPaid(n,p,th){if(th<=1)return n*p;let s=0;for(let k=th;k<=n;k++)s+=k*
 const UNLOCKS=[
  {k:'shop',need:s=>s.runs>=3},{k:'chips',need:s=>s.runs>=5},{k:'stages',need:s=>s.runs>=12},{k:'stats',need:s=>s.runs>=15},
  {k:'locs',need:s=>s.runs>=17&&s.cleared.includes(0)},{k:'pity',need:s=>s.runs>=20},{k:'sets',need:s=>s.runs>=23},{k:'monty',need:s=>s.runs>=26},{k:'enhance',need:s=>eqOf(s).some(i=>i&&i.lvl>=4)},
- {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'deck',need:s=>s.runs>=35},{k:'offline',need:s=>s.runs>=38},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'duel',need:s=>s.runs>=20},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
+ {k:'synergy',need:s=>s.runs>=25},{k:'thresh',need:s=>s.runs>=29},{k:'mimic',need:s=>s.runs>=32},{k:'deck',need:s=>s.runs>=35},{k:'offline',need:s=>s.runs>=38},{k:'eval',need:s=>s.runs>=41},{k:'variants',need:s=>s.monty.plays>=8},{k:'duel',need:s=>s.runs>=20},{k:'penney',need:s=>s.runs>=27},{k:'cards',need:s=>s.runs>=36},{k:'dive',need:s=>s.runs>=44},{k:'secretary',need:s=>s.runs>=48},{k:'kelly',need:s=>s.won||s.runs>=70},{k:'rebirth',need:s=>s.won}];
 function checkUnlocks(s){const out=[];for(const u of UNLOCKS){if(s.unl[u.k])continue;if(!u.need(s)){if(u.k==='enhance'||u.k==='variants'||u.k==='kelly'||u.k==='secretary')continue;break;}s.unl[u.k]=1;out.push(u.k);if(u.k==='variants')initGuides(s);}return out;}
 function thr(s,t){return s.unl.thresh&&!(s.perks&&s.perks.noThresh)?CHIP_TH[t]:1;}
 // --- state
@@ -116,7 +116,22 @@ function duelPay(s,rng){const d=s.duel;s.duelStats.n++;if(!d.win){d.reward=null;
 function duelEnd(s){const d=s.duel;s.duel=null;return d;}
 // best response from observed frequencies (what an attentive player would do)
 function duelHint(s){const d=s.duel;if(!d)return null;const n=d.round;const sa=d.seen.atk.map(x=>(x+1)/(n+3)),sb=d.seen.blk.map(x=>(x+1)/(n+3));return{atk:sb.indexOf(Math.min(...sb)),blk:sa.indexOf(Math.max(...sa)),pa:sa,pb:sb};}
-function newState(){return{attr:{str:0,agi:0,int:0,end:0},duel:null,duelStats:{n:0,w:0,hist:[0,0,0]},ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
+// shared trial payout: item into bag (or route loot); practice pays pennies
+function trialPay(s,o,r,rng){const loc=o.loc!==undefined?o.loc:Math.max(0,...s.cleared);if(o.practice){const g=Math.round(3*LX(loc).lvl);s.gold+=g;return g;}const it=makeItem(s,loc,r,rng);if(o.route&&s.run)s.run.loot.push(it);else{it.fresh=true;s.inv.push(it);}return it;}
+function trialPay0(s,o){return o.practice?0:0;}
+// Penney's game: the warlock names a 3-coin sequence, you answer with yours; coins are tossed until one appears
+const PEN_COST=2;function penCounter(q){return[q[1]==='О'?'Р':'О',q[0],q[1]].join('');}
+function penStart(s,rng=Math.random,o={}){if(s.pen||!s.unl.penney)return false;if(!o.free){if(s.energy<PEN_COST)return false;s.energy-=PEN_COST;}const q=[0,1,2].map(()=>rng()<0.5?'О':'Р').join('');s.pen={opp:q,me:null,flips:'',done:false,o:{loc:o.loc,route:!!o.route,practice:!!o.practice}};return true;}
+function penPick(s,me,rng=Math.random){const p=s.pen;if(!p||p.me||!/^[ОР]{3}$/.test(me)||me===p.opp)return null;p.me=me;let f='';while(f.length<200){f+=rng()<0.5?'О':'Р';if(f.endsWith(me)){p.win=true;break;}if(f.endsWith(p.opp)){p.win=false;break;}}p.flips=f;p.done=true;s.penStats.n++;if(p.win){s.penStats.w++;p.reward=trialPay(s,p.o,rng()<0.15?3:2,rng);}return p;}
+function penWinP(a,b){// exact P(sequence b appears before a) via Conway leading numbers
+ const L=(x,y)=>{let v=0;for(let i=0;i<3;i++)if(x.slice(i)===y.slice(0,3-i))v+=1<<(2-i);return v;};const ab=L(a,b),bb=L(b,b),aa=L(a,a),ba=L(b,a);return (aa-ab)/((aa-ab)+(bb-ba));}
+function penEnd(s){const p=s.pen;s.pen=null;return p;}
+// Red/black counting: 12 cards (6+6); guess the colour of each next card; score >=8 pays, >=10 pays better
+const RB_COST=3;function rbStart(s,rng=Math.random,o={}){if(s.rb||!s.unl.cards)return false;if(!o.free){if(s.energy<RB_COST)return false;s.energy-=RB_COST;}const d=[];for(let i=0;i<6;i++)d.push('r','b');for(let i=d.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[d[i],d[j]]=[d[j],d[i]];}s.rb={deck:d,i:0,score:0,log:[],done:false,o:{loc:o.loc,route:!!o.route,practice:!!o.practice}};return true;}
+function rbLeft(s){const r=s.rb;const rest=r.deck.slice(r.i);return{r:rest.filter(x=>x==='r').length,b:rest.filter(x=>x==='b').length};}
+function rbGuess(s,c,rng=Math.random){const r=s.rb;if(!r||r.done)return null;const card=r.deck[r.i++];const ok=card===c;if(ok)r.score++;r.log.push({c,card,ok});if(r.i>=r.deck.length){r.done=true;s.rbStats.n++;if(r.score>=8){s.rbStats.w++;r.reward=trialPay(s,r.o,r.score>=10?3:2,rng);}}return{card,ok};}
+function rbEnd(s){const r=s.rb;s.rb=null;return r;}
+function newState(){return{pen:null,rb:null,penStats:{n:0,w:0},rbStats:{n:0,w:0},attr:{str:0,agi:0,int:0,end:0},duel:null,duelStats:{n:0,w:0,hist:[0,0,0]},ver:SAVE_VER,gold:0,mats:0,energy:15,energyT:0,shards:0,lvl:1,xp:0,loc:0,
  chips:2,hpUp:0,dmgUp:0,maxEUp:0,regenUp:0,guideUp:0,lensUp:0,bagUp:0,bootsUp:0,doorsUp:0,
  alloc:[0,0,0],inv:[],cons:{},arm:{},weapon:null,armor:null,charm:null,helm:null,gloves:null,boots:null,nextId:1,runs:0,deaths:0,cleared:[],won:false,run:null,unl:{},
  autoSell:0,scrolls:0,lastSeen:0,playMs:0,rebirths:0,perks:{},kelly:{tokens:0,p:0.6,bets:0,profit:0,best:0},tab:'run',sound:0,ach:{},decks:{},sec:null,dive:null,diveStats:{n:0,top:0,ruin:0},coll:{},stashUp:0,secStats:{n:0,best:0},sets:{},mimic:null,bayesUp:0,stats:{rolls:[0,0,0,0,0],exp:[0,0,0,0,0],chipHit:0,chipExp:0,deaths:0,deathExp:0,enhOk:0,enhTry:0,enhExp:0},
@@ -210,6 +225,8 @@ const NODES={fight:{ru:'Бой',ic:'⚔️',w:55,d:'обычный этап: д�
  mimic:{ru:'Подозрительный сундук',ic:'👀',w:12,need:'mimic',d:'мимик или клад? (Байес), риск ×0.5'},merchant:{ru:'Странник',ic:'🧳',w:8,need:'secretary',d:'задача о секретаре, риск ×0.5'},
  shaft:{ru:'Шахта',ic:'🕳️',w:10,need:'dive',d:'бесплатное погружение, риск ×0.5'},
  boss:{ru:'Логово босса',ic:'💀',w:0,d:'поединок с владыкой этих мест и риск ×3; награда — эпик+ и шанс на часть комплекта'},
+ penney:{ru:'Монеты Чернокнижника',ic:'🪙',w:6,need:'penney',d:'игра Пенни: ответьте на его последовательность, риск ×0.5'},
+ cards:{ru:'Карты гадалки',ic:'🃏',w:6,need:'cards',d:'угадывайте цвет карт, считая вышедшие, риск ×0.5'},
  duel:{ru:'Поединок',ic:'🤺',w:9,need:'duel',d:'дуэль: угадайте привычки врага, риск ×0.5'},
  shrine:{ru:'Алтарь',ic:'⛩',w:8,need:'kelly',d:'ставка мелочью из мешка (Келли), риск ×0.5'}};
 // shrine: bet a fraction of the run's melted cash on a 60% coin, stake capped
@@ -458,7 +475,7 @@ function monteCarlo(s,loc,alloc,stopAt=1,N=2000,rng=Math.random){const arr=new F
  arr.sort();const q=x=>arr[Math.min(N-1,Math.floor(x*N))];const max=arr[N-1]||1,bins=new Array(12).fill(0);
  for(const v of arr)bins[Math.min(11,Math.floor(v/max*12))]++;return{mean:sum/N,p10:q(0.1),p50:q(0.5),p90:q(0.9),death:d/N,bins,max};}
 function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все на редкий',a:[n,0,0]},{name:'Пара на эпик',a:[n-Math.min(n,2),Math.min(n,2),0]},{name:'Охота на легендарку',a:[0,0,n]}];}
-const api={SAVE_VER,diveRoute,extraP,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,SKIN_U,skinOk,ATTR,A,attrFree,attrAdd,attrReset,ZONES,DUEL_COST,BOSSES,bossOf,duelStart,duelOdds,duelRound,duelEnd,duelHint,skinStage,skinB,LX,abyss,abyssMax,BASE_N,rollQ,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
+const api={SAVE_VER,diveRoute,extraP,montyStep,SHRINE_P,shrineStake,shrineBet,stepShift,GTYPES,GT_RU,GT_RULE,switchWin,NODES,nodeTypes,nodeProbs,makeRoute,CONS,CONS_K,consPrice,buyCons,armBuff,elixPreview,healMs,healCost,deathEnergy,healNow,hurtLeft,penaltyGold,continueEV,STANCE,stance,stanceInfo,SLOTS,SLOT_RU,SKIN_U,skinOk,ATTR,A,attrFree,attrAdd,attrReset,ZONES,DUEL_COST,PEN_COST,penCounter,penStart,penPick,penWinP,penEnd,RB_COST,rbStart,rbLeft,rbGuess,rbEnd,BOSSES,bossOf,duelStart,duelOdds,duelRound,duelEnd,duelHint,skinStage,skinB,LX,abyss,abyssMax,BASE_N,rollQ,slotsOpen,eqOf,slotP,GSETS,GS_CH,setsAt,setCount,setAff,rule,chipTotal,pityCost,ownedPieces,setPieceRun,setComplete,makeSetItem,maybeSet,planBest,applyPlan,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
  initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,retroTag,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,DSTEP,divePolicyP,diveItemsVal,ropeCost,torchCost,diveBuy,diveStepP,diveMul,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};

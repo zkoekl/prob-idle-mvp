@@ -65,12 +65,25 @@ const TUT={monty:['🎁 Сундуки','Перед вами несколько 
  duel:['🤺 Поединок','Бой идёт по раундам, пока у кого-то не кончится здоровье.','Каждый раунд выберите, куда бить и что закрыть блоком. Враг делает то же самое.','У врага есть любимые зоны. Смотрите таблицу привычек: бейте туда, где он редко ставит блок, а закрывайте то, куда он чаще бьёт.'],
  dive:['🕳️ Погружение','Цель — спуститься на дно. Каждый шаг ведёт вниз или отбрасывает вверх.','Новая глубина кладёт добычу в мешок. Вернётесь на поверхность — мешок потерян. Забрать и выйти можно в любой момент.','Смелый шаг быстрее, но на глубине опасен. Осторожный стоит ⚡, зато надёжнее и показывает следующий шаг.'],
  mimic:['👀 Подозрительный сундук','Это может быть клад, а может быть мимик.','Постучите: мимик гремит чаще, чем сундук. Каждый стук уточняет шанс.','Когда шанс мимика станет мал — открывайте. Велик — уходите.'],
+ penney:['🪙 Монеты Чернокнижника','Чернокнижник называет три броска монеты, например «О-Р-Р» (О — орёл, Р — решка).','Вы называете свои три. Монету бросают, пока одна из последовательностей не выпадет подряд.','Хитрость: первым быть невыгодно! На любой его выбор есть ответ, который побеждает в 2–7 случаях из 8. Подсказка покажет ваш шанс.'],
+ cards:['🃏 Карты гадалки','В колоде 12 карт: 6 красных и 6 чёрных. Гадалка открывает их по одной.','Перед каждой картой угадайте цвет. 8 угадываний и больше — награда, 10+ — щедрая.','Считайте вышедшие: если красных осталось больше, ставьте на красную. Последние карты можно угадать наверняка.'],
  merchant:['🧳 Странник','Странник показывает товары по одному, всего 8.','Взять можно только один, и к пропущенному не вернуться.','Мудрость старая: первые трое — только смотреть, потом брать первый, что лучше всех виденных.']};
-const TUTC={montyCard:'monty',shrineCard:'shrine',duelCard:'duel',mimicCard:'mimic',secCard:'merchant'};
+const TUTC={penCard:'penney',rbCard:'cards',montyCard:'monty',shrineCard:'shrine',duelCard:'duel',mimicCard:'mimic',secCard:'merchant'};
 function tutHtml(){const t=S.tut;let el=document.getElementById('tut');if(!t){if(el)el.remove();return;}if(!el){el=document.createElement('div');el.id='tut';document.body.appendChild(el);}const T=TUT[t.k];const last=t.i>=T.length-2;
  el.innerHTML=`<div class="tutbox"><h3>${T[0]}</h3><p>${T[t.i+1]}</p><div class="tutdots">${T.slice(1).map((_,i)=>`<i class="${i===t.i?'on':''}"></i>`).join('')}</div><div class="row"><button class="small" data-tutx="1">Пропустить</button><button class="big" data-tutn="1">${last?'Понятно':'Дальше'}</button></div></div>`;}
 function tutCheck(){S.tutSeen=S.tutSeen||{};if(S.tut)return;for(const id in TUTC){const e=$(id);if(e&&!e.hidden&&!S.tutSeen[TUTC[id]]){S.tut={k:TUTC[id],i:0};return;}}if(S.dive&&!S.tutSeen.dive){S.tut={k:'dive',i:0};}}
-function nodeEvent(t){if(t==='chest'){G.maybeMonty(S,Math.random,true,S.run?S.run.stage:0);}else if(t==='mimic'){G.maybeMimic(S,Math.random,true);}else if(t==='merchant'){G.maybeSecretary(S,Math.random,true);}else if(t==='shrine'){S.shrineOpen=1;}else if(t==='boss'){G.duelStart(S,Math.random,{free:1,route:1,boss:1,loc:S.run?S.run.loc:undefined});}else if(t==='duel'){G.duelStart(S,Math.random,{free:1,route:1,loc:S.run?S.run.loc:undefined});}else if(t==='shaft'){}}
+const rw=x=>x&&x.name?`${x.name} (${x.rarity})`:`+${x}💰`;
+function renderPen(){const p=S.pen;$('penCard').hidden=!p;if(S.tab==='games'&&$('penT')){const pr=S.energy<G.PEN_COST;$('penT').innerHTML=`<p class="goal">Цель: назвать три броска, которые выпадут раньше, чем у Чернокнижника.</p><div class="row"><button class="big" id="penGo" ${p?'disabled':''}>${pr?'🎯 Тренировка (бесплатно)':`🪙 Сыграть (⚡${G.PEN_COST})`}</button></div><small>Побед: ${S.penStats.w}/${S.penStats.n}. Награда: редкая вещь (иногда эпическая).</small>`;}
+ if(!p)return;const me=S.penMe||'ООО';let h=`<p class="goal">Чернокнижник выбрал: <b class="seq">${p.opp.split('').join('-')}</b></p>`;
+ if(!p.done){h+=`<div class="row">Ваш ответ: ${[0,1,2].map(i=>`<button class="big" data-pen="${i}">${me[i]}</button>`).join('')}</div><small>Нажмите на бросок, чтобы сменить О↔Р. ${me===p.opp?'<b class="bad">Нельзя повторять его выбор.</b>':`Ваш шанс победить: <b>${Math.round(G.penWinP(p.opp,me)*100)}%</b>`}</small><div class="row"><button class="big" id="penOk" ${me===p.opp?'disabled':''}>Бросать монету</button></div>`;}
+ else{const f=p.flips;h+=`<div class="flips">${f.split('').map((c,i)=>`<span class="${i>=f.length-3?(p.win?'good':'bad'):''}">${c}</span>`).join('')}</div><p class="${p.win?'good':'bad'}"><b>${p.win?'Ваша последовательность выпала первой!':'Его последовательность выпала первой.'}</b> ${p.win?'Награда: '+rw(p.reward):''}</p>${p.win?'':`<small>Лучший ответ на ${p.opp}: <b>${G.penCounter(p.opp)}</b> (шанс ${Math.round(G.penWinP(p.opp,G.penCounter(p.opp))*100)}%): второй его бросок переверните и поставьте в начало, затем его первые два.</small>`}<div class="row"><button class="big" id="penEnd">Дальше</button></div>`;}
+ $('pen').innerHTML=h;}
+function renderRB(){const r=S.rb;$('rbCard').hidden=!r;if(S.tab==='games'&&$('rbT')){const pr=S.energy<G.RB_COST;$('rbT').innerHTML=`<p class="goal">Цель: угадать цвет 8 карт из 12.</p><div class="row"><button class="big" id="rbGo" ${r?'disabled':''}>${pr?'🎯 Тренировка (бесплатно)':`🃏 Сыграть (⚡${G.RB_COST})`}</button></div><small>Побед: ${S.rbStats.w}/${S.rbStats.n}. 8+ — редкая вещь, 10+ — эпическая.</small>`;}
+ if(!r)return;const L=G.rbLeft(S);let h=`<p class="goal">Угадано: <b>${r.score}</b> из ${r.i} · нужно 8 из 12</p><div class="rbleft">Осталось: <b class="red">🟥 ${L.r}</b> · <b>⬛ ${L.b}</b></div><div class="flips">${r.log.map(x=>`<span class="${x.ok?'good':'bad'}">${x.card==='r'?'🟥':'⬛'}</span>`).join('')}</div>`;
+ if(!r.done){h+=`<small>Шанс красной: ${L.r+L.b?Math.round(L.r/(L.r+L.b)*100):0}%</small><div class="row"><button class="big" data-rb="r">🟥 Красная</button><button class="big" data-rb="b">⬛ Чёрная</button></div>`;}
+ else h+=`<p class="${r.score>=8?'good':'bad'}"><b>${r.score>=8?'Гадалка довольна!':'Не хватило угадываний.'}</b> ${r.reward?'Награда: '+rw(r.reward):''}</p><div class="row"><button class="big" id="rbEnd">Дальше</button></div>`;
+ $('rb').innerHTML=h;}
+function nodeEvent(t){if(t==='chest'){G.maybeMonty(S,Math.random,true,S.run?S.run.stage:0);}else if(t==='mimic'){G.maybeMimic(S,Math.random,true);}else if(t==='merchant'){G.maybeSecretary(S,Math.random,true);}else if(t==='shrine'){S.shrineOpen=1;}else if(t==='boss'){G.duelStart(S,Math.random,{free:1,route:1,boss:1,loc:S.run?S.run.loc:undefined});}else if(t==='penney'){G.penStart(S,Math.random,{free:1,route:1,loc:S.run?S.run.loc:undefined});S.penMe='ООО';}else if(t==='cards'){G.rbStart(S,Math.random,{free:1,route:1,loc:S.run?S.run.loc:undefined});}else if(t==='duel'){G.duelStart(S,Math.random,{free:1,route:1,loc:S.run?S.run.loc:undefined});}else if(t==='shaft'){}}
 function avEq(){const e=G.eqOf(S);const o={};G.SLOTS.forEach((k,i)=>o[k]=e[i]);return o;}
 const BN={hpPct:'здоровье',luck:'удача',riskRed:'риск',goldPct:'золото'};
 const SKN={wander:['🧭','Странник'],knight:['🛡️','Рыцарь'],witch:['🔮','Ведьма'],shade:['🗡️','Тень'],lich:['💀','Лич']};
@@ -110,7 +123,7 @@ function runEval(){const rows=[{name:'Ваш расклад',a:S.alloc.slice(),y
   h+=`<tr class="${r.you?'you':''}"><td>${r.name}</td><td>${sn}</td><td>${fmt(m.mean)}</td><td>${fmt(m.p10)}</td><td>${fmt(m.p50)}</td><td>${fmt(m.p90)}</td><td>${pct(m.death)}</td></tr>`;}
  const mx=Math.max(...y.bins);
  $('eval').innerHTML=`<div class="hint">Ваш расклад: распределение золота за поход (0…${fmt(y.max)}), красный — ноль</div><div class="hist">${y.bins.map((b,i)=>`<i class="${i?'':'z'}" style="height:${b/mx*100}%"></i>`).join('')}</div>${h}</table>`;}
-function render(){if(window.HeroArt){const e=G.eqOf(S),key=(S.skin||'')+G.heroPower(S)+e.map(x=>x?x.id:0).join();if(key!==window._havK){window._havK=key;const h=document.getElementById('hav');if(h)h.innerHTML=HeroArt.renderAvatar(avEq(),{skin:S.skin||'wander',power:G.heroPower(S),size:34});}}RC=null;renderShrine();renderDuel();header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
+function render(){if(window.HeroArt){const e=G.eqOf(S),key=(S.skin||'')+G.heroPower(S)+e.map(x=>x?x.id:0).join();if(key!==window._havK){window._havK=key;const h=document.getElementById('hav');if(h)h.innerHTML=HeroArt.renderAvatar(avEq(),{skin:S.skin||'wander',power:G.heroPower(S),size:34});}}RC=null;renderShrine();renderDuel();renderPen();renderRB();header();const U=S.unl;const act=t=>!U.shop||S.tab===t;if(!['run','hero','shop','games','stats'].includes(S.tab))S.tab='run';$('win').hidden=!S.won||S.winHidden;
  const slot=(k)=>{const it=S[k];if(!it)return G.slotsOpen(S).includes(k)?`<div class="item empty"><div class="txt"><small>${G.SLOT_RU[k]}: пусто — найдите в походе</small></div></div>`:'';const c=G.upgradeCost(it);const p=G.enhP(it.lvl);
   const can=U.shop&&it.slot!=='charm'&&it.lvl<10;
   const info=p<1?`<br><small>шанс ${pct(p)}${G.enhDown(it.lvl)?' · провал: −1 ур.':''} · ≈${G.expTries(it.lvl,S.useScroll&&S.scrolls>0).toFixed(1)} попыт.</small>`:'';
@@ -219,7 +232,7 @@ function celebrate(){if(window.matchMedia&&matchMedia('(prefers-reduced-motion: 
  const cols=['#f08a00','#ffd166','#8e44c9','#2f7fd8','#3fa34d'];for(let i=0;i<36;i++){const e=document.createElement('i');e.className='confetti';e.style.left=Math.random()*100+'vw';
   e.style.background=cols[i%5];e.style.animationDelay=Math.random()*0.3+'s';e.style.setProperty('--dx',(Math.random()*120-60)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),2000);}}
 const TABS=[['run','⚔️','Поход',()=>1],['hero','🛡️','Снаряжение',()=>1],['games','🎲','Испытания',U=>U.monty||U.deck||U.dive||U.kelly],['shop','🪙','Лавка',U=>U.shop]];
-const GAMES=[['guidesCard','🎁','Сундуки',U=>U.monty&&S.monty.guides],['diveCard','🕳️','Погружение',U=>U.dive],['kellyCard','🪙','Монета',U=>U.kelly],['deckCard','🃏','Колода',U=>U.deck],['arenaCard','🤺','Арена',U=>U.duel]];
+const GAMES=[['guidesCard','🎁','Сундуки',U=>U.monty&&S.monty.guides],['diveCard','🕳️','Погружение',U=>U.dive],['kellyCard','🪙','Монета',U=>U.kelly],['deckCard','🃏','Колода',U=>U.deck],['arenaCard','🤺','Арена',U=>U.duel],['penTile','🪙','Монеты',U=>U.penney],['rbTile','🃏','Карты',U=>U.cards]];
 function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.toggle('tabs',on);$('tabs').hidden=!on;
  const av=TABS.filter(t=>t[3](U));if(S.tab!=='stats'&&!av.find(t=>t[0]===S.tab))S.tab='run';$('menu').hidden=!on;$('menu').classList.toggle('sel',S.tab==='stats');
  const better=S.inv.some(isBetter);
@@ -227,7 +240,7 @@ function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.to
  const gs=GAMES.filter(g=>g[3](U));if(!gs.find(g=>g[0]===S.game))S.game=gs.length?gs[0][0]:null;
  if(S.tab==='games')$('gameTiles').innerHTML=gs.map(g=>`<button class="tile ${S.game===g[0]?'sel':''}" data-game="${g[0]}"><i>${g[1]}</i><span>${g[2]}</span></button>`).join('');
  document.querySelectorAll('main [data-tab]').forEach(el=>el.classList.toggle('off',!(el.id==='diveCard'&&S.dive&&S.dive.route)&&(on&&el.dataset.tab!==S.tab||(S.tab==='games'&&el.id&&GAMES.some(g=>g[0]===el.id)&&el.id!==S.game))));
- const ev=['montyCard','secCard','mimicCard','shrineCard','duelCard'].some(k=>!$(k).hidden)||!!(S.dive&&S.dive.route);document.body.classList.toggle('evopen',ev);tutCheck();tutHtml();}
+ const ev=['montyCard','secCard','mimicCard','shrineCard','duelCard','penCard','rbCard'].some(k=>!$(k).hidden)||!!(S.dive&&S.dive.route);document.body.classList.toggle('evopen',ev);tutCheck();tutHtml();}
 let AC=null;function beep(f,d=0.12,v=0.05){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
  o.frequency.value=f;o.type='sine';g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
 function lootSound(items){if(!items.length)return;const r=Math.max(...items.map(i=>i.r));beep(330+r*110,0.15);if(r===4)setTimeout(()=>beep(880,0.3),150);}
@@ -299,6 +312,11 @@ document.addEventListener('click',e=>{const tp=e.target.closest('.tip');if(tp){M
  else if(b.id==='go'){G.startRun(S);}
  else if(b.id==='heal'){G.healNow(S);}
  else if(b.id==='bagAll'){S.bagAll=!S.bagAll;}
+ else if(b.id==='penGo'){const pr=S.energy<G.PEN_COST;G.penStart(S,Math.random,{free:pr,practice:pr});S.penMe='ООО';}
+ else if(d.pen!==undefined&&S.pen){const m=(S.penMe||'ООО').split('');m[+d.pen]=m[+d.pen]==='О'?'Р':'О';S.penMe=m.join('');}
+ else if(b.id==='penOk'&&S.pen){G.penPick(S,S.penMe||'ООО');}else if(b.id==='penEnd'){G.penEnd(S);}
+ else if(b.id==='rbGo'){const pr=S.energy<G.RB_COST;G.rbStart(S,Math.random,{free:pr,practice:pr});}
+ else if(d.rb&&S.rb){const x=G.rbGuess(S,d.rb);if(x)beep(x.ok?660:300);}else if(b.id==='rbEnd'){G.rbEnd(S);}
  else if(d.tutn&&S.tut){S.tut.i++;if(S.tut.i>=TUT[S.tut.k].length-1){S.tutSeen[S.tut.k]=1;S.tut=null;}}
  else if(d.tutx&&S.tut){S.tutSeen[S.tut.k]=1;S.tut=null;}
  else if(d.tut){S.tutSeen=S.tutSeen||{};S.tut={k:d.tut,i:0};}

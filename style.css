@@ -207,3 +207,4 @@ details.fold{background:var(--card2);border:1px solid var(--line);border-radius:
 .slots .item .txt b{white-space:normal}
 .slots{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important}.slots .item .txt{flex:1;min-width:110px}
 .theme-combats .item small,.theme-combats .item .af{color:#4a3520}
+.flips{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0;font-weight:700}.flips span{padding:2px 5px;border:1px solid var(--line);border-radius:4px}.seq{letter-spacing:.1em}.red{color:#e05555}
