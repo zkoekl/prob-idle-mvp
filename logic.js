@@ -226,7 +226,8 @@ function offline(s,now=Date.now(),rng=Math.random){const away=s.lastSeen?now-s.l
 // --- Kelly coin: known edge, bet fraction of gold; tokens earned per full run (max 10)
 function kellyNew(s,rng=Math.random){s.kelly.p=Math.round((0.53+rng()*0.17)*100)/100;}
 function kellyOpt(p){return Math.max(0,2*p-1);}
-function kellyBet(s,f,rng=Math.random){const K=s.kelly;if(K.tokens<1||f<=0||f>1)return null;K.tokens--;const stake=Math.floor(s.gold*f);const win=rng()<K.p;
+function kellyCap(s){return Math.round(150*LOCS[Math.max(0,...s.cleared)].lvl*(1+0.25*s.rebirths));}
+function kellyBet(s,f,rng=Math.random){const K=s.kelly;if(K.tokens<1||f<=0||f>1)return null;K.tokens--;const stake=Math.min(kellyCap(s),Math.floor(s.gold*f));const win=rng()<K.p;
  s.gold+=win?stake:-stake;K.bets++;K.profit+=win?stake:-stake;const r={win,stake,p:K.p,f,opt:kellyOpt(K.p)};kellyNew(s,rng);return r;}
 // expected log-growth per bet for fraction f
 function kellyGrowth(p,f){return f>=1?-Infinity:p*Math.log(1+f)+(1-p)*Math.log(1-f);}
@@ -295,6 +296,6 @@ function strategies(n){return[{name:'Без фишек',a:[0,0,0]},{name:'Все
 const api={SAVE_VER,RARS,RAR_RU,RAR_W,RAR_VAL,CHIP_T,CHIP_TH,AFFIXES,LOCS,SHARDS_FOR_PITY,MAX_LVL,pmf,pAtLeast,expPaid,UNLOCKS,checkUnlocks,thr,
  newState,load,aff,itemPower,heroDmg,heroHp,heroPower,xpNeed,addXp,unlocked,maxEnergy,regenSec,tickEnergy,runCost,stageMs,rolls,luckMul,rarChances,itemValue,
  chipChance,riskWeight,deathChance,stageEV,makeItem,score,equip,equipBest,dismantle,upgradeCost,upgradeItem,startRun,continueRun,rollStage,bank,craftPity,
- initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
+ initGuides,doors,maybeMonty,guideType,montyPick,montyClosed,montyFinal,montyClear,guessGuide,SHOP,SHOP_FIELD,shopAvail,buy,monteCarlo,strategies,kellyCap,TAGS,TAG_K,tagCount,syn,stashCap,keptCount,pieceChance,toggleKeep,DIVE,diveP,ruinP,diveCash,diveStart,diveStep,diveCashOut,DECK,DECK_N,deckOf,deckLeft,pWithin,drawCard,SEC_N,maybeSecretary,secCur,secSeenBest,secTake,secPass,DAILY,dayKey,daily,dmod,luckVerdict,ACH,checkAch,perksAvail,locReq,locThreat,OFF_CAP,LAMBDA,poissonP,poissonDraw,offline,kellyNew,kellyOpt,kellyBet,kellyGrowth,PERKS,rebirth,SETS,SET_N,rollTrophy,expRemaining,setBonus,MIMIC,maybeMimic,posterior,knock,resolveMimic,autoSellItems,enhP,enhDown,expTries};
 if(typeof module!=='undefined')module.exports=api;else root.G=api;
 })(this);

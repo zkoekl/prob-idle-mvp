@@ -154,10 +154,10 @@ function renderTabs(){const U=S.unl;const on=!!U.shop;document.body.classList.to
 let AC=null;function beep(f,d=0.12,v=0.05){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();
  o.frequency.value=f;o.type='sine';g.gain.value=v;g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
 function lootSound(items){if(!items.length)return;const r=Math.max(...items.map(i=>i.r));beep(330+r*110,0.15);if(r===4)setTimeout(()=>beep(880,0.3),150);}
-function renderKelly(){const U=S.unl;$('kellyCard').hidden=!U.kelly;if(!U.kelly)return;const K=S.kelly;const f=S.kf??0.1;const st=Math.floor(S.gold*f);
+function renderKelly(){const U=S.unl;$('kellyCard').hidden=!U.kelly;if(!U.kelly)return;const K=S.kelly;const f=S.kf??0.1;const st=Math.min(G.kellyCap(S),Math.floor(S.gold*f));
  $('kelly').innerHTML=`<div class="kv"><span>Шанс выигрыша монеты</span><b>${pct(K.p)}</b><span>Выплата</span><b>1:1</b><span>Жетоны ставок</span><b>${K.tokens}/10</b>
  <span>Доля золота</span><b>${pct(f)} = ${fmt(st)}💰</b><span>Ожидаемый лог-рост за ставку</span><b class="${G.kellyGrowth(K.p,f)>0?'good':'bad'}">${(G.kellyGrowth(K.p,f)*100).toFixed(2)}%</b>
- <span>Итог ставок</span><b>${K.bets} ставок, ${K.profit>=0?'+':''}${fmt(K.profit)}💰</b></div>
+ <span>Макс. ставка (растёт с прогрессом)</span><b>${fmt(G.kellyCap(S))}💰</b><span>Итог ставок</span><b>${K.bets} ставок, ${K.profit>=0?'+':''}${fmt(K.profit)}💰</b></div>
  ${f>G.kellyOpt(K.p)*2?`<div class="warn">⚠️ Ставка больше двух Келли — в долгую золото будет таять, даже с перевесом.</div>`:f>G.kellyOpt(K.p)?`<div class="hint">Выше оптимума: рост медленнее, риск выше.</div>`:''}<input type="range" id="kf" class="slider" min="0" max="0.9" step="0.01" value="${f}"><div class="row"><button id="kbet" class="big" ${K.tokens<1||st<1?'disabled':''}>🪙 Поставить</button><button id="kopt" class="small">Показать оптимум Келли</button></div>
  <div class="hint">Жетон — за каждый полностью пройденный поход. Попробуйте найти долю, при которой золото растёт быстрее всего в долгую.</div>`;}
 function renderRebirth(){const U=S.unl;$('rebirthCard').hidden=!U.rebirth;if(!U.rebirth)return;

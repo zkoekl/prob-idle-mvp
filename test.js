@@ -52,4 +52,15 @@ assert(Math.abs(G.expRemaining(0)-11.4166667)<1e-6,'coupon');assert(G.expTries(3
  G.equipBest(s);assert(s.weapon.tag==='fire'&&s.armor.tag==='fire'&&s.charm.tag==='fire','synergy combo beats singles: '+[s.weapon.tag,s.armor.tag,s.charm.tag]);
  assert(G.pieceChance(s,0,'charm','fire',5)>0&&G.pieceChance(s,0,'charm','fire',5)<1,'piece');
  const it=s.inv[0];assert(G.toggleKeep(s,it.id)===true&&G.dismantle(s,it.id)===0,'stash');}
+// anti-farm: each mini-game must not allow unbounded/exponential gold growth
+{const base=()=>{const s=G.newState();G.UNLOCKS.forEach(u=>s.unl[u.k]=1);s.cleared=[0,1,2];s.gold=1e5;s.won=true;return s;};
+ // Kelly: even with unlimited tokens and max fraction, growth per bet <= cap
+ {const s=base();const cap=G.kellyCap(s);for(let i=0;i<2000;i++){s.kelly.tokens=1;G.kellyBet(s,0.9);}assert(s.gold<=1e5+2000*cap,'kelly bounded');
+  const s2=base();for(let i=0;i<2000;i++){s2.kelly.tokens=1;G.kellyBet(s2,G.kellyOpt(s2.kelly.p));}assert(s2.gold<=1e5+2000*G.kellyCap(s2),'kelly opt bounded');console.log('kelly 2000 bets gain',Math.round(s2.gold-1e5),'cap/bet',G.kellyCap(s2));}
+ // dive: exact optimal EV per energy (DP over cash-out) vs. normal runs' gold per energy
+ {const s=base();const p=G.diveP(s),N=G.DIVE.N;let V=new Array(N+1).fill(0);for(let it=0;it<500;it++){const W=V.slice();for(let x=1;x<N;x++)W[x]=Math.max(x>G.DIVE.A?G.diveCash(s,x):0,p*(x+1===N?G.diveCash(s,N)+G.itemValue(s,2,4):V[x+1])+(1-p)*V[x-1]);V=W;}
+  const dive=V[G.DIVE.A]/G.DIVE.cost;const run=G.stageEV(s,2,[0,0,0],0)*G.LOCS[2].stages/G.runCost(s,2);console.log('gold/energy dive',dive.toFixed(1),'runs',run.toFixed(1));assert(dive<run*2,'dive not a farm');}
+ // event triggers (monty/mimic/merchant/deck) are tied to runs: rewards per run bounded
+ {const s=base();let g0=s.gold,items=0;for(let i=0;i<500;i++){G.maybeMonty(s,Math.random,true);G.montyPick(s,0);G.montyFinal(s,G.montyClosed(s.monty.pending)[0]);G.montyClear(s);G.drawCard(s,2);}
+  assert((s.gold-g0)/500<50*G.LOCS[2].lvl,'events bounded per run');}}
 console.log('TESTS OK');
