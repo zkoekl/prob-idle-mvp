@@ -99,7 +99,7 @@ function unlocked(s,l){return l===0||(s.unl.locs&&s.cleared.includes(l-1)&&heroP
 // --- energy & time
 function maxEnergy(s){return 30+s.maxEUp*10+(s.perks.energy||0)*20;}
 // early game: energy refills faster so the first minutes have little waiting
-function regenSec(s){return (s.runs<15?4:s.runs<30?7:10)*Math.pow(0.9,s.regenUp)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
+function regenSec(s){return (s.runs<15?4:s.runs<30?7:9)*Math.pow(0.9,s.regenUp)*(dmod(s,'energy')?0.8:1)*Math.pow(0.95,(s.perks&&s.perks.energy)||0);}
 function tickEnergy(s,now=Date.now()){if(s.hurtMs>0&&!s.hurtAt)s.hurtAt=now;if(s.hurtAt&&now>=s.hurtAt+s.hurtMs){s.hurtMs=0;s.hurtAt=0;}if(!s.energyT){s.energyT=now;return;}const per=regenSec(s)*1000;
  if(s.energy>=maxEnergy(s)){s.energyT=now;return;}const n=Math.floor((now-s.energyT)/per);if(n>0){s.energy=Math.min(maxEnergy(s),s.energy+n);s.energyT+=n*per;}}
 function runCost(s,loc){return 3+loc*4;}
