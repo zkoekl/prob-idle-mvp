@@ -2,13 +2,17 @@
 <title>Вероятностный поход</title><link rel="stylesheet" href="style.css"></head><body>
 <header><h1>🎲 Вероятностный поход</h1><div id="stats"></div></header>
 <main>
-<section class="card"><h2>Локация</h2><div id="locs" class="row"></div><div id="risk"></div></section>
-<section class="card"><h2>Распределение фишек <span id="chipinfo"></span></h2>
-<div class="hint">Каждая фишка — независимое испытание на ярусе. Ярус 10 — единственный источник легендарок; провал на нём даёт осколок.</div>
-<div id="tiers"></div><div class="row"><button id="go" class="big">⚔️ В поход</button><button id="clear">Сбросить</button><button id="opt">Жадный оптимум</button></div></section>
-<section class="card" id="reportCard" hidden><h2>Итоги похода</h2><div id="report"></div></section>
+<div id="win" class="card winc" hidden>🏆 Бездна Удачи покорена! Вы прошли игру. Можно продолжать фармить легендарки.</div>
 <section class="card"><h2>Герой</h2><div id="hero"></div></section>
-<section class="card"><h2>Инвентарь</h2><div class="row"><button id="autoeq">Надеть лучшее</button><button id="disAll">Разобрать всё</button></div><div id="inv"></div></section>
-<section class="card"><h2>Лавка</h2><div id="shop" class="row"></div></section>
+<section class="card"><h2>Локации</h2><div id="locs" class="locgrid"></div></section>
+<section class="card" id="runCard" hidden><h2>Поход</h2><div id="run"></div></section>
+<section class="card" id="planCard"><h2>Распределение фишек <span id="chipinfo"></span></h2>
+<div class="hint">Каждая фишка — независимое испытание на ярусе на <b>каждом этапе</b>. Ярусы 6–9 платят только при ≥2 успехах за этап. Фишки на высоких ярусах повышают риск гибели. Провал на ярусе 10 даёт осколок (40 → легендарка).</div>
+<div id="presets" class="row"></div><div id="tiers"></div><div id="plansum"></div>
+<div class="row"><button id="go" class="big">⚔️ В поход</button><button id="clear">Очистить</button><button id="evalb">📊 Оценить (2000 симуляций)</button></div>
+<div id="eval"></div></section>
+<section class="card" id="reportCard" hidden><h2>Итоги</h2><div id="report"></div></section>
+<section class="card"><h2>Инвентарь</h2><div class="row"><button id="autoeq">Надеть лучшее</button><button id="disAll">Разобрать не лучше надетого</button></div><div id="inv"></div></section>
+<section class="card"><h2>Лавка и улучшения</h2><div id="shop" class="shopgrid"></div></section>
 <footer><button id="reset" class="danger">Сбросить прогресс</button></footer>
-</main><script src="logic.js"></script><script src="app.js"></script></body></html>
+</main><script src="art.js"></script><script src="logic.js"></script><script src="app.js"></script></body></html>
